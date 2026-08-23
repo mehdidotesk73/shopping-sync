@@ -4,6 +4,7 @@ import type { ShoppingItem } from '../lib/types'
 import { useShoppingList } from '../lib/useShoppingList'
 import { useKnownStores } from '../lib/useKnownStores'
 import { allCategories, allStores, findDuplicate } from '../lib/items'
+import { tagColor } from '../lib/tagColor'
 import ItemGridModal from './ItemGridModal.vue'
 import SessionView from './SessionView.vue'
 import { logDebug } from '../debug'
@@ -93,14 +94,14 @@ function endSession() {
   <div class="shopping-list">
     <template v-if="view === 'list'">
       <div class="list-header">
-        <button class="btn-primary" @click="openAdd">+ Add item</button>
+        <button class="btn-primary" @click="openAdd">⊕ Add item</button>
         <button class="btn-secondary" :disabled="!items.length" @click="startSessionFlow">
           Start shopping
         </button>
       </div>
 
       <p v-if="!items.length" class="empty">
-        No items yet — tap <strong>+ Add item</strong> to get started.
+        No items yet — tap <strong>⊕ Add item</strong> to get started.
       </p>
 
       <ul v-else class="item-list">
@@ -111,12 +112,12 @@ function endSession() {
               <span v-if="item.quantity" class="item-qty">({{ item.quantity }})</span>
             </span>
             <div class="item-tags">
-              <span v-if="item.category" class="tag category-tag">{{ item.category }}</span>
-              <span v-for="store in item.stores" :key="store" class="tag store-tag">{{ store }}</span>
+              <span v-if="item.category" class="tag" :style="tagColor(item.category)">{{ item.category }}</span>
+              <span v-for="store in item.stores" :key="store" class="tag" :style="tagColor(store)">{{ store }}</span>
             </div>
           </div>
           <button class="remove-btn" aria-label="Remove item" @click.stop="handleRemove(item)">
-            ✕
+            ⊖
           </button>
         </li>
       </ul>
@@ -255,16 +256,6 @@ function endSession() {
   padding: 0.15rem 0.5rem;
   border-radius: 999px;
   white-space: nowrap;
-}
-
-.category-tag {
-  background: var(--bg-elev-2);
-  color: var(--text-muted);
-}
-
-.store-tag {
-  background: var(--accent-blue);
-  color: #fff;
 }
 
 .remove-btn {

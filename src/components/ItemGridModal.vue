@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
 import type { ShoppingItem } from '../lib/types'
+import { tagColor } from '../lib/tagColor'
 
 interface Row {
   key: string
@@ -58,19 +59,22 @@ function rowFromItem(item: ShoppingItem): Row {
 
 const rows = ref<Row[]>([blankRow()])
 const openStorePicker = ref<string | null>(null)
+const storeFilter = ref('')
 const showAddStore = ref(false)
 const newStoreName = ref('')
+const editingField = ref<{ key: string; field: 'category' | 'quantity' } | null>(null)
+const editBuffer = ref('')
 
 watch(
   () => props.open,
   (isOpen) => {
     if (!isOpen) return
-    rows.value = props.initialItems.length
-      ? props.initialItems.map(rowFromItem)
-      : [blankRow()]
+    rows.value = props.initialItems.length ? props.initialItems.map(rowFromItem) : [blankRow()]
     openStorePicker.value = null
+    storeFilter.value = ''
     showAddStore.value = false
     newStoreName.value = ''
+    editingField.value = null
   },
   { immediate: true },
 )
@@ -110,23 +114,67 @@ function pullExisting(row: Row) {
   row.quantity = match.quantity
 }
 
+const canAddRow = computed(() => {
+  const last = rows.value[rows.value.length - 1]
+  return !last || last.name.trim().length > 0
+})
+
 function addRow() {
+  if (!canAddRow.value) return
   rows.value.push(blankRow())
 }
 
 function removeRow(key: string) {
   rows.value = rows.value.filter((r) => r.key !== key)
   if (openStorePicker.value === key) openStorePicker.value = null
+  if (editingField.value?.key === key) editingField.value = null
 }
 
 function toggleStorePicker(key: string) {
-  openStorePicker.value = openStorePicker.value === key ? null : key
+  if (openStorePicker.value === key) {
+    openStorePicker.value = null
+  } else {
+    openStorePicker.value = key
+    storeFilter.value = ''
+  }
 }
 
 function toggleStoreOnRow(row: Row, store: string) {
   const i = row.stores.indexOf(store)
   if (i === -1) row.stores.push(store)
   else row.stores.splice(i, 1)
+}
+
+const filteredStores = computed(() => {
+  const f = storeFilter.value.trim().toLowerCase()
+  if (!f) return props.knownStores
+  return props.knownStores.filter((s) => s.toLowerCase().includes(f))
+})
+
+function startEditCategory(row: Row) {
+  editingField.value = { key: row.key, field: 'category' }
+  editBuffer.value = row.category
+}
+
+function startEditQuantity(row: Row) {
+  editingField.value = { key: row.key, field: 'quantity' }
+  editBuffer.value = row.quantity
+}
+
+function isEditing(row: Row, field: 'category' | 'quantity'): boolean {
+  return editingField.value?.key === row.key && editingField.value.field === field
+}
+
+function commitEdit(row: Row) {
+  if (!editingField.value || editingField.value.key !== row.key) return
+  const value = editBuffer.value.trim()
+  if (editingField.value.field === 'category') row.category = value
+  else row.quantity = value
+  editingField.value = null
+}
+
+function cancelEdit() {
+  editingField.value = null
 }
 
 function confirmAddStore() {
@@ -163,7 +211,7 @@ function save() {
         <h2 class="modal-title">Add / edit items</h2>
         <div class="add-store">
           <button v-if="!showAddStore" class="btn-secondary" @click="showAddStore = true">
-            + Add store
+            ⊕ Add store
           </button>
           <template v-else>
             <input
@@ -172,6 +220,7 @@ function save() {
               placeholder="Store name"
               autofocus
               @keyup.enter="confirmAddStore"
+              @keyup.esc="showAddStore = false"
             />
             <button class="btn-secondary" @click="confirmAddStore">Add</button>
             <button class="btn-secondary" @click="showAddStore = false">Cancel</button>
@@ -183,83 +232,160 @@ function save() {
         <option v-for="c in knownCategories" :key="c" :value="c" />
       </datalist>
 
-      <div class="grid-scroll">
-        <table class="grid">
-          <thead>
-            <tr>
-              <th class="col-name">Name</th>
-              <th class="col-category">Category</th>
-              <th class="col-store">Store</th>
-              <th class="col-qty">Qty</th>
-              <th class="col-actions"></th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr
-              v-for="row in rows"
-              :key="row.key"
-              :class="{ duplicate: isDuplicateInGrid(row), linked: row.sourceId && !isDuplicateInGrid(row) }"
+      <div class="grid-rows">
+        <div
+          v-for="row in rows"
+          :key="row.key"
+          class="grid-row"
+          :class="{ duplicate: isDuplicateInGrid(row), linked: row.sourceId && !isDuplicateInGrid(row) }"
+        >
+          <div class="row-line1">
+            <button
+              type="button"
+              class="icon-btn remove-icon"
+              title="Remove row"
+              @click="removeRow(row.key)"
             >
-              <td class="col-name">
-                <input v-model="row.name" type="text" placeholder="Item name" />
-              </td>
-              <td class="col-category">
+              ⊖
+            </button>
+            <input v-model="row.name" type="text" class="name-input" placeholder="Item name" />
+            <span v-if="isDuplicateInGrid(row)" class="status-icon duplicate-icon" title="Duplicate name in this grid">
+              ⚠
+            </span>
+            <button
+              v-else-if="existingMatch(row)"
+              type="button"
+              class="icon-btn status-icon pull-icon"
+              title="An item with this name already exists — tap to edit it instead"
+              @click="pullExisting(row)"
+            >
+              ⇄
+            </button>
+          </div>
+
+          <div class="tag-row">
+            <!-- Category -->
+            <input
+              v-if="isEditing(row, 'category')"
+              v-model="editBuffer"
+              type="text"
+              class="inline-edit"
+              list="grid-category-suggestions"
+              placeholder="Category"
+              autofocus
+              @keyup.enter="commitEdit(row)"
+              @keyup.esc="cancelEdit"
+              @blur="commitEdit(row)"
+            />
+            <button
+              v-else-if="!row.category"
+              type="button"
+              class="icon-btn add-icon"
+              title="Add category"
+              @click="startEditCategory(row)"
+            >
+              ⊕
+            </button>
+            <span
+              v-else
+              class="tag color-tag"
+              :style="tagColor(row.category)"
+              @click="startEditCategory(row)"
+            >
+              {{ row.category }}
+              <button type="button" class="tag-remove" title="Remove category" @click.stop="row.category = ''">
+                ⊖
+              </button>
+            </span>
+
+            <!-- Store(s) -->
+            <span
+              v-for="store in row.stores"
+              :key="store"
+              class="tag color-tag"
+              :style="tagColor(store)"
+            >
+              {{ store }}
+              <button
+                type="button"
+                class="tag-remove"
+                title="Remove store"
+                @click.stop="toggleStoreOnRow(row, store)"
+              >
+                ⊖
+              </button>
+            </span>
+            <div class="store-picker">
+              <button
+                type="button"
+                class="icon-btn add-icon"
+                title="Add store"
+                @click="toggleStorePicker(row.key)"
+              >
+                ⊕
+              </button>
+              <div v-if="openStorePicker === row.key" class="store-popover">
                 <input
-                  v-model="row.category"
+                  v-model="storeFilter"
                   type="text"
-                  list="grid-category-suggestions"
-                  placeholder="Category"
+                  class="store-filter"
+                  placeholder="Filter stores"
+                  autofocus
                 />
-              </td>
-              <td class="col-store">
-                <div class="store-picker">
-                  <button type="button" class="store-btn" @click="toggleStorePicker(row.key)">
-                    {{ row.stores.length ? row.stores.join(', ') : 'Store' }}
-                  </button>
-                  <div v-if="openStorePicker === row.key" class="store-popover">
-                    <label v-for="store in knownStores" :key="store" class="store-option">
-                      <input
-                        type="checkbox"
-                        :checked="row.stores.includes(store)"
-                        @change="toggleStoreOnRow(row, store)"
-                      />
-                      {{ store }}
-                    </label>
-                    <p v-if="!knownStores.length" class="store-empty">
-                      No stores yet — use "+ Add store" above.
-                    </p>
-                  </div>
-                </div>
-              </td>
-              <td class="col-qty">
-                <input v-model="row.quantity" type="text" placeholder="Qty" />
-              </td>
-              <td class="col-actions">
-                <span v-if="isDuplicateInGrid(row)" class="status duplicate-status">Duplicate</span>
-                <button
-                  v-else-if="existingMatch(row)"
-                  type="button"
-                  class="status pull-status"
-                  title="An item with this name already exists — tap to edit it instead"
-                  @click="pullExisting(row)"
-                >
-                  ● Edit existing
-                </button>
-                <button
-                  type="button"
-                  class="remove-row-btn"
-                  aria-label="Remove row"
-                  @click="removeRow(row.key)"
-                >
-                  ✕
-                </button>
-              </td>
-            </tr>
-          </tbody>
-        </table>
+                <label v-for="store in filteredStores" :key="store" class="store-option">
+                  <input
+                    type="checkbox"
+                    :checked="row.stores.includes(store)"
+                    @change="toggleStoreOnRow(row, store)"
+                  />
+                  {{ store }}
+                </label>
+                <p v-if="!filteredStores.length" class="store-empty">
+                  No matches — use "⊕ Add store" above to create one.
+                </p>
+              </div>
+            </div>
+
+            <!-- Quantity -->
+            <input
+              v-if="isEditing(row, 'quantity')"
+              v-model="editBuffer"
+              type="text"
+              class="inline-edit"
+              placeholder="Qty"
+              autofocus
+              @keyup.enter="commitEdit(row)"
+              @keyup.esc="cancelEdit"
+              @blur="commitEdit(row)"
+            />
+            <button
+              v-else-if="!row.quantity"
+              type="button"
+              class="icon-btn add-icon"
+              title="Add quantity"
+              @click="startEditQuantity(row)"
+            >
+              ⊕
+            </button>
+            <span v-else class="tag neutral-tag" @click="startEditQuantity(row)">
+              {{ row.quantity }}
+              <button type="button" class="tag-remove" title="Remove quantity" @click.stop="row.quantity = ''">
+                ⊖
+              </button>
+            </span>
+          </div>
+        </div>
       </div>
 
-      <button type="button" class="btn-secondary add-row-btn" @click="addRow">+ Add row</button>
+      <button
+        type="button"
+        class="btn-secondary add-row-btn"
+        :disabled="!canAddRow"
+        :title="canAddRow ? '' : 'Enter a name for the current row first'"
+        @click="addRow"
+      >
+        ⊕ Add row
+      </button>
 
       <div class="modal-actions">
         <button class="btn-secondary" @click="emit('cancel')">Cancel</button>
@@ -282,7 +408,7 @@ function save() {
 
 .modal-content {
   width: 100%;
-  max-width: 46rem;
+  max-width: 40rem;
   max-height: 92vh;
   overflow-y: auto;
   background: var(--bg-elev);
@@ -331,98 +457,139 @@ function save() {
   width: 9rem;
 }
 
-.grid-scroll {
-  overflow-x: auto;
+.grid-rows {
   border: 1px solid var(--border);
   border-radius: 0.6rem;
   margin-bottom: 0.6rem;
+  overflow: hidden;
 }
 
-.grid {
-  width: 100%;
-  min-width: 40rem;
-  border-collapse: collapse;
-}
-
-.grid th {
-  text-align: left;
-  font-size: 0.78rem;
-  color: var(--text-muted);
-  font-weight: 600;
-  padding: 0.5rem 0.6rem;
-  background: var(--bg-elev-2);
+.grid-row {
+  padding: 0.6rem;
+  background: var(--bg-elev);
   border-bottom: 1px solid var(--border);
-  position: sticky;
-  top: 0;
 }
 
-.grid td {
-  padding: 0.4rem 0.6rem;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-
-.grid tbody tr:last-child td {
+.grid-row:last-child {
   border-bottom: none;
 }
 
-.grid tr.duplicate td {
+.grid-row.duplicate {
   background: rgba(211, 47, 47, 0.12);
 }
 
-.grid tr.linked td {
+.grid-row.linked {
   background: rgba(0, 102, 204, 0.06);
 }
 
-.col-name {
-  width: 30%;
+.row-line1 {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
 }
 
-.col-category {
-  width: 22%;
-}
-
-.col-store {
-  width: 22%;
-}
-
-.col-qty {
-  width: 10%;
-}
-
-.col-actions {
-  width: 16%;
-  white-space: nowrap;
-}
-
-.grid input[type='text'] {
-  width: 100%;
+.name-input {
+  flex: 1;
+  min-width: 0;
   min-height: 2.5rem;
   padding: 0.4rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: 0.4rem;
   background: var(--bg);
   color: var(--text);
-  font-size: 0.9rem;
+  font-size: 0.95rem;
 }
 
-.store-picker {
-  position: relative;
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
 }
 
-.store-btn {
-  width: 100%;
-  min-height: 2.5rem;
-  padding: 0.4rem 0.5rem;
-  border: 1px solid var(--border);
+.icon-btn {
+  border: none;
+  background: transparent;
+  font-size: 1.3rem;
+  line-height: 1;
+  padding: 0.15rem;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.add-icon {
+  color: var(--accent-blue);
+}
+
+.remove-icon {
+  color: var(--text-muted);
+}
+
+.remove-icon:hover {
+  color: var(--danger);
+}
+
+.status-icon {
+  font-size: 1.15rem;
+}
+
+.duplicate-icon {
+  color: var(--danger);
+}
+
+.pull-icon {
+  color: #ffb300;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  padding: 0.25rem 0.55rem;
+  border-radius: 999px;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.neutral-tag {
+  background: var(--bg-elev-2);
+  color: var(--text);
+}
+
+.tag-remove {
+  border: none;
+  background: transparent;
+  color: inherit;
+  opacity: 0.8;
+  font-size: 0.85rem;
+  line-height: 1;
+  padding: 0;
+}
+
+.tag-remove:hover {
+  opacity: 1;
+}
+
+.inline-edit {
+  min-height: 2.3rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--accent-blue);
   border-radius: 0.4rem;
   background: var(--bg);
   color: var(--text);
   font-size: 0.85rem;
-  text-align: left;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  width: 8rem;
+}
+
+.store-picker {
+  position: relative;
+  display: inline-flex;
 }
 
 .store-popover {
@@ -430,8 +597,8 @@ function save() {
   top: calc(100% + 0.25rem);
   left: 0;
   z-index: 110;
-  min-width: 10rem;
-  max-height: 12rem;
+  min-width: 11rem;
+  max-height: 13rem;
   overflow-y: auto;
   display: flex;
   flex-direction: column;
@@ -441,6 +608,16 @@ function save() {
   border: 1px solid var(--border);
   border-radius: 0.5rem;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+.store-filter {
+  min-height: 2.2rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.85rem;
 }
 
 .store-option {
@@ -459,44 +636,14 @@ function save() {
   max-width: 10rem;
 }
 
-.status {
-  display: inline-flex;
-  align-items: center;
-  font-size: 0.75rem;
-  padding: 0.25rem 0.5rem;
-  border-radius: 999px;
-  border: none;
-  white-space: nowrap;
-  margin-right: 0.3rem;
-}
-
-.duplicate-status {
-  background: var(--danger);
-  color: #fff;
-}
-
-.pull-status {
-  background: #ffb300;
-  color: #1a1a1a;
-  font-weight: 600;
-}
-
-.remove-row-btn {
-  width: 2.25rem;
-  height: 2.25rem;
-  border: none;
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 1rem;
-}
-
-.remove-row-btn:hover {
-  color: var(--danger);
-}
-
 .add-row-btn {
   width: 100%;
   margin-bottom: 1rem;
+}
+
+.add-row-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .modal-actions {
