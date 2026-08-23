@@ -69,9 +69,21 @@ function handleGridSave(rows: GridRow[]) {
   closeGrid()
 }
 
-function handleRemove(item: ShoppingItem) {
-  removeItem(item.id)
-  logDebug(`Removed item: ${item.name}`)
+const pendingRemoveId = ref<string | null>(null)
+let pendingRemoveTimer: ReturnType<typeof setTimeout> | null = null
+
+function handleRemoveTap(item: ShoppingItem) {
+  if (pendingRemoveTimer) clearTimeout(pendingRemoveTimer)
+  if (pendingRemoveId.value === item.id) {
+    pendingRemoveId.value = null
+    removeItem(item.id)
+    logDebug(`Removed item: ${item.name}`)
+    return
+  }
+  pendingRemoveId.value = item.id
+  pendingRemoveTimer = setTimeout(() => {
+    pendingRemoveId.value = null
+  }, 3000)
 }
 
 function handleRenameStore(payload: { id: string; name: string }) {
@@ -136,8 +148,13 @@ function endSession() {
               <span v-for="storeId in item.stores" :key="storeId" class="tag" :style="tagColor(storeId)">{{ storeName(storeId) }}</span>
             </div>
           </div>
-          <button class="remove-btn" aria-label="Remove item" @click.stop="handleRemove(item)">
-            ⊖
+          <button
+            class="remove-btn"
+            :class="{ confirming: pendingRemoveId === item.id }"
+            aria-label="Remove item"
+            @click.stop="handleRemoveTap(item)"
+          >
+            {{ pendingRemoveId === item.id ? 'Tap again to remove' : '⊖' }}
           </button>
         </li>
       </ul>
@@ -294,16 +311,26 @@ function endSession() {
 
 .remove-btn {
   flex-shrink: 0;
-  width: 2.5rem;
+  min-width: 2.5rem;
   height: 2.5rem;
+  padding: 0 0.5rem;
   border: none;
+  border-radius: 0.4rem;
   background: transparent;
   color: var(--text-muted);
   font-size: 1.1rem;
+  white-space: nowrap;
 }
 
 .remove-btn:hover {
   color: var(--danger);
+}
+
+.remove-btn.confirming {
+  background: var(--danger);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 600;
 }
 
 .session-start-header {

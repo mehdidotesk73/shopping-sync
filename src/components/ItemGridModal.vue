@@ -302,18 +302,22 @@ function save() {
 
           <div class="tag-row">
             <!-- Category -->
-            <input
-              v-if="isEditing(row, 'category')"
-              v-model="editBuffer"
-              type="text"
-              class="inline-edit"
-              list="grid-category-suggestions"
-              placeholder="Category"
-              autofocus
-              @keyup.enter="commitEdit(row)"
-              @keyup.esc="cancelEdit"
-              @blur="deferCommit(row)"
-            />
+            <span v-if="isEditing(row, 'category')" class="inline-edit-group">
+              <input
+                v-model="editBuffer"
+                type="text"
+                class="inline-edit"
+                list="grid-category-suggestions"
+                placeholder="Category"
+                autofocus
+                @keyup.enter="commitEdit(row)"
+                @keyup.esc="cancelEdit"
+                @blur="deferCommit(row)"
+              />
+              <button type="button" class="inline-edit-cancel" title="Cancel" @click="cancelEdit">
+                ⊗
+              </button>
+            </span>
             <button
               v-else-if="!row.category"
               type="button"
@@ -393,17 +397,21 @@ function save() {
             </div>
 
             <!-- Quantity -->
-            <input
-              v-if="isEditing(row, 'quantity')"
-              v-model="editBuffer"
-              type="text"
-              class="inline-edit"
-              placeholder="Qty"
-              autofocus
-              @keyup.enter="commitEdit(row)"
-              @keyup.esc="cancelEdit"
-              @blur="deferCommit(row)"
-            />
+            <span v-if="isEditing(row, 'quantity')" class="inline-edit-group">
+              <input
+                v-model="editBuffer"
+                type="text"
+                class="inline-edit"
+                placeholder="Qty"
+                autofocus
+                @keyup.enter="commitEdit(row)"
+                @keyup.esc="cancelEdit"
+                @blur="deferCommit(row)"
+              />
+              <button type="button" class="inline-edit-cancel" title="Cancel" @click="cancelEdit">
+                ⊗
+              </button>
+            </span>
             <button
               v-else-if="!row.quantity"
               type="button"
@@ -655,6 +663,12 @@ function save() {
   opacity: 1;
 }
 
+.inline-edit-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+
 .inline-edit {
   min-height: 2.3rem;
   padding: 0.3rem 0.5rem;
@@ -664,6 +678,21 @@ function save() {
   color: var(--text);
   font-size: 0.85rem;
   width: 8rem;
+}
+
+.inline-edit-cancel {
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  min-width: 2rem;
+  min-height: 2.3rem;
+  flex-shrink: 0;
+}
+
+.inline-edit-cancel:hover {
+  color: var(--danger);
 }
 
 .store-picker {
