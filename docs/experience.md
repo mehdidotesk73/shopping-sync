@@ -118,6 +118,22 @@ Emitting declarations for an *app* makes `vue-tsc` demand exported names for eve
 
 (Record major releases here as you merge features. Example format below.)
 
+### v0.4.0 — 2026-08-23
+- **Added:** Bulk-assign a store or a category to a selection of items at once, instead of editing
+  each one individually — the fix for "I imported 50 bare-name items, now I need to tag them."
+  **Edit categories** is new: it lists categories actually in use (with a count) and, like Edit
+  stores, gives each one an "Assign items" checklist (grouped by category, pre-checked with current
+  members) plus a free-text field to bulk-assign a brand-new category. Both managers share the same
+  checklist UI, which also gained **Select all** / **Deselect all**.
+- **UI:** Edit stores and Edit categories moved off the header into one `☰` sub-menu, replacing the
+  standalone "Edit stores" button — mirrors the existing `⧉` list-actions menu pattern.
+- **Docs:** This entry was written after the merge, again. This time the hand-off explicitly said
+  "I'll run the doc gate before you merge — ping me first" — but the user has direct merge access on
+  GitHub and used it, so that ask was never actually in the critical path. The gate can't be a real
+  blocker when the other party can merge without going through me at all; the only thing that
+  reliably works is catching the `pull_request.closed` (merged) webhook and running the gate
+  immediately after, every time, rather than counting on a pre-merge ask to be honored.
+
 ### v0.3.0 — 2026-08-23
 - **Added:** Import a pasted list (Apple Notes checklist, plain bullets/numbers, one-per-line, or
   comma-separated) into item names, with a preview flagging already-on-list and repeated-in-paste

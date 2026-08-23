@@ -61,6 +61,17 @@ Track feature development, improvements, and known issues here. Move completed w
   checked boolean not null default false`) — already run. The previously-recommended
   `unique index on (list_id, lower(name))` has also now been run.
 
+- **Bulk-assign stores/categories (v0.4.0):** Edit stores and a new **Edit categories** manager
+  (`CategoryManagerModal.vue`) now live behind one `☰` sub-menu next to Add item/Start shopping,
+  replacing the standalone "Edit stores" header button. Both offer an "Assign items" action that
+  opens a shared `BulkAssignModal.vue` (a `store`/`category` mode over the same UI): a checklist of
+  every item grouped by category, pre-checked with whichever items already carry that store/category,
+  plus Select all/Deselect all. Saving only writes the items whose membership actually changed, via
+  the existing per-item `updateItem` — same code path for local and shared lists. Edit categories
+  lists categories actually in use (via `groupByCategory`, excluding the "Uncategorized" display
+  bucket) with a count each, plus a free-text row to bulk-assign a brand-new category. Solves
+  "imported 50 bare-name items, now tag them" without opening each one individually.
+
 ## Next (Current Sprint)
 
 (Nothing queued right now.)
@@ -87,8 +98,9 @@ Track feature development, improvements, and known issues here. Move completed w
   or tapping **End session** mid-shop still loses it. (Picked-up state itself is now persisted once
   you do finish — see v0.3.0 above — this is just about the in-progress case.)
 - Reorder/pin categories instead of always alphabetical (with Uncategorized last).
-- Categories are still plain strings (no rename/delete-everywhere the way stores now have) — could
-  get the same entity treatment if that turns out to matter in practice.
+- Categories are still plain strings, not a first-class entity like stores — Edit categories
+  (v0.4.0) covers bulk-assigning a category to a selection of items, but there's still no one-step
+  "rename this category everywhere" or "delete this category everywhere" the way stores have.
 - No "unshare" — once a list is shared it stays shared; only removing it from your own device's
   registry is supported.
 - A shared list's *name* isn't synced live — the owner renaming it locally doesn't update what
