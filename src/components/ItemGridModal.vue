@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed, watch } from 'vue'
-import type { ShoppingItem } from '../lib/types'
+import type { ShoppingItem, Store } from '../lib/types'
 import { tagColor } from '../lib/tagColor'
 
 interface Row {
@@ -8,7 +8,7 @@ interface Row {
   sourceId: string | null
   name: string
   category: string
-  stores: string[]
+  stores: string[] // Store ids
   quantity: string
 }
 
@@ -16,7 +16,7 @@ interface SavedRow {
   sourceId: string | null
   name: string
   category: string
-  stores: string[]
+  stores: string[] // Store ids
   quantity: string
 }
 
@@ -25,13 +25,13 @@ interface Props {
   initialItems: ShoppingItem[]
   savedItems: ShoppingItem[]
   knownCategories: string[]
-  knownStores: string[]
+  stores: Store[]
+  resolveStore: (name: string) => Store
 }
 
 interface Emits {
   (e: 'save', rows: SavedRow[]): void
   (e: 'cancel'): void
-  (e: 'add-store', name: string): void
 }
 
 const props = defineProps<Props>()
@@ -139,23 +139,27 @@ function toggleStorePicker(key: string) {
   }
 }
 
-function toggleStoreOnRow(row: Row, store: string) {
-  const i = row.stores.indexOf(store)
-  if (i === -1) row.stores.push(store)
+function toggleStoreOnRow(row: Row, storeId: string) {
+  const i = row.stores.indexOf(storeId)
+  if (i === -1) row.stores.push(storeId)
   else row.stores.splice(i, 1)
+}
+
+function storeName(id: string): string {
+  return props.stores.find((s) => s.id === id)?.name ?? '(removed store)'
 }
 
 // Only candidates not already on the open row, so the dropdown is purely "add a store" —
 // removing one happens via the tag's own ⊖, not by re-toggling it in this list.
 const filteredStores = computed(() => {
   const openRow = rows.value.find((r) => r.key === openStorePicker.value)
-  const selected = new Set(openRow?.stores ?? [])
+  const selectedIds = new Set(openRow?.stores ?? [])
   const f = storeFilter.value.trim().toLowerCase()
-  return props.knownStores.filter((s) => !selected.has(s) && (!f || s.toLowerCase().includes(f)))
+  return props.stores.filter((s) => !selectedIds.has(s.id) && (!f || s.name.toLowerCase().includes(f)))
 })
 
-function selectStore(row: Row, store: string) {
-  if (!row.stores.includes(store)) row.stores.push(store)
+function selectStore(row: Row, store: Store) {
+  if (!row.stores.includes(store.id)) row.stores.push(store.id)
   openStorePicker.value = null
   storeFilter.value = ''
 }
@@ -163,8 +167,8 @@ function selectStore(row: Row, store: string) {
 function addAndSelectStore(row: Row, name: string) {
   const trimmed = name.trim()
   if (!trimmed) return
-  emit('add-store', trimmed)
-  if (!row.stores.includes(trimmed)) row.stores.push(trimmed)
+  const store = props.resolveStore(trimmed)
+  if (!row.stores.includes(store.id)) row.stores.push(store.id)
   openStorePicker.value = null
   storeFilter.value = ''
 }
@@ -206,7 +210,7 @@ function cancelEdit() {
 function confirmAddStore() {
   const name = newStoreName.value.trim()
   if (!name) return
-  emit('add-store', name)
+  props.resolveStore(name)
   newStoreName.value = ''
   showAddStore.value = false
 }
@@ -326,17 +330,17 @@ function save() {
 
             <!-- Store(s) -->
             <span
-              v-for="store in row.stores"
-              :key="store"
+              v-for="storeId in row.stores"
+              :key="storeId"
               class="tag color-tag"
-              :style="tagColor(store)"
+              :style="tagColor(storeId)"
             >
-              {{ store }}
+              {{ storeName(storeId) }}
               <button
                 type="button"
                 class="tag-remove"
                 title="Remove store"
-                @click.stop="toggleStoreOnRow(row, store)"
+                @click.stop="toggleStoreOnRow(row, storeId)"
               >
                 ⊖
               </button>
@@ -360,12 +364,12 @@ function save() {
                 />
                 <button
                   v-for="store in filteredStores"
-                  :key="store"
+                  :key="store.id"
                   type="button"
                   class="store-option"
                   @click="selectStore(row, store)"
                 >
-                  {{ store }}
+                  {{ store.name }}
                 </button>
                 <button
                   v-if="!filteredStores.length && storeFilter.trim()"

@@ -51,17 +51,9 @@ export function groupByCategory(items: ShoppingItem[]): CategoryGroup[] {
     }))
 }
 
-export function itemsForStore(items: ShoppingItem[], store: string | null): ShoppingItem[] {
-  if (!store) return items
-  return items.filter((item) => item.stores.includes(store))
-}
-
-export function allStores(items: ShoppingItem[]): string[] {
-  const set = new Set<string>()
-  for (const item of items) {
-    for (const store of item.stores) set.add(store)
-  }
-  return [...set].sort((a, b) => a.localeCompare(b))
+export function itemsForStore(items: ShoppingItem[], storeId: string | null): ShoppingItem[] {
+  if (!storeId) return items
+  return items.filter((item) => item.stores.includes(storeId))
 }
 
 export function allCategories(items: ShoppingItem[]): string[] {

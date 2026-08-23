@@ -2,32 +2,36 @@
 import { ref, computed } from 'vue'
 import type { ShoppingItem } from '../lib/types'
 import { useShoppingList } from '../lib/useShoppingList'
-import { useKnownStores } from '../lib/useKnownStores'
-import { allCategories, allStores, findDuplicate } from '../lib/items'
+import { useStores } from '../lib/useStores'
+import { migrateLegacyStoreData } from '../lib/migrateStores'
+import { allCategories, findDuplicate, itemsForStore } from '../lib/items'
 import { tagColor } from '../lib/tagColor'
 import ItemGridModal from './ItemGridModal.vue'
+import StoreManagerModal from './StoreManagerModal.vue'
 import SessionView from './SessionView.vue'
 import { logDebug } from '../debug'
 
+migrateLegacyStoreData()
+
 const { items, addItem, updateItem, removeItem } = useShoppingList()
-const { extraStores, addStore } = useKnownStores()
+const { stores, addStore, renameStore, removeStore } = useStores()
 
 type View = 'list' | 'session-start' | 'session'
 const view = ref<View>('list')
 
 const showGrid = ref(false)
 const gridInitialItems = ref<ShoppingItem[]>([])
+const showStoreManager = ref(false)
 
 const knownCategories = computed(() => allCategories(items.value))
-const knownStores = computed(() => {
-  const set = new Set<string>(extraStores.value)
-  for (const store of allStores(items.value)) set.add(store)
-  return [...set].sort((a, b) => a.localeCompare(b))
-})
 
 const sortedItems = computed(() =>
   [...items.value].sort((a, b) => a.name.localeCompare(b.name)),
 )
+
+function storeName(id: string): string {
+  return stores.value.find((s) => s.id === id)?.name ?? '(removed store)'
+}
 
 function openAdd() {
   gridInitialItems.value = []
@@ -58,31 +62,39 @@ function handleGridSave(rows: GridRow[]) {
   closeGrid()
 }
 
-function handleAddStore(name: string) {
-  addStore(name)
-  logDebug(`Added store: ${name}`)
-}
-
 function handleRemove(item: ShoppingItem) {
   removeItem(item.id)
   logDebug(`Removed item: ${item.name}`)
 }
 
+function handleRenameStore(payload: { id: string; name: string }) {
+  renameStore(payload.id, payload.name)
+  logDebug(`Renamed store to: ${payload.name}`)
+}
+
+function handleRemoveStore(id: string) {
+  const name = storeName(id)
+  for (const item of items.value) {
+    const i = item.stores.indexOf(id)
+    if (i !== -1) item.stores.splice(i, 1)
+  }
+  removeStore(id)
+  logDebug(`Deleted store: ${name}`)
+}
+
 const sessionStore = ref<string | null>(null)
+const sessionStoreName = computed(() => (sessionStore.value ? storeName(sessionStore.value) : null))
 
 function startSessionFlow() {
   view.value = 'session-start'
 }
 
-function beginSession(store: string | null) {
-  sessionStore.value = store
+function beginSession(storeId: string | null) {
+  sessionStore.value = storeId
   view.value = 'session'
 }
 
-const sessionItems = computed(() => {
-  if (!sessionStore.value) return sortedItems.value
-  return sortedItems.value.filter((i) => i.stores.includes(sessionStore.value as string))
-})
+const sessionItems = computed(() => itemsForStore(sortedItems.value, sessionStore.value))
 
 function endSession() {
   view.value = 'list'
@@ -98,6 +110,7 @@ function endSession() {
         <button class="btn-secondary" :disabled="!items.length" @click="startSessionFlow">
           Start shopping
         </button>
+        <button class="btn-secondary" @click="showStoreManager = true">Edit stores</button>
       </div>
 
       <p v-if="!items.length" class="empty">
@@ -113,7 +126,7 @@ function endSession() {
             </span>
             <div class="item-tags">
               <span v-if="item.category" class="tag" :style="tagColor(item.category)">{{ item.category }}</span>
-              <span v-for="store in item.stores" :key="store" class="tag" :style="tagColor(store)">{{ store }}</span>
+              <span v-for="storeId in item.stores" :key="storeId" class="tag" :style="tagColor(storeId)">{{ storeName(storeId) }}</span>
             </div>
           </div>
           <button class="remove-btn" aria-label="Remove item" @click.stop="handleRemove(item)">
@@ -130,14 +143,14 @@ function endSession() {
       </div>
       <button class="option-row" @click="beginSession(null)">All items</button>
       <button
-        v-for="store in knownStores"
-        :key="store"
+        v-for="store in stores"
+        :key="store.id"
         class="option-row"
-        @click="beginSession(store)"
+        @click="beginSession(store.id)"
       >
-        {{ store }}
+        {{ store.name }}
       </button>
-      <p v-if="!knownStores.length" class="empty">
+      <p v-if="!stores.length" class="empty">
         Add a preferred store to an item to shop by store.
       </p>
     </template>
@@ -145,7 +158,7 @@ function endSession() {
     <SessionView
       v-else-if="view === 'session'"
       :items="sessionItems"
-      :store="sessionStore"
+      :store="sessionStoreName"
       @end="endSession"
     />
 
@@ -154,10 +167,20 @@ function endSession() {
       :initial-items="gridInitialItems"
       :saved-items="items"
       :known-categories="knownCategories"
-      :known-stores="knownStores"
+      :stores="stores"
+      :resolve-store="addStore"
       @save="handleGridSave"
       @cancel="closeGrid"
-      @add-store="handleAddStore"
+    />
+
+    <StoreManagerModal
+      :open="showStoreManager"
+      :stores="stores"
+      :items="items"
+      @rename="handleRenameStore"
+      @remove="handleRemoveStore"
+      @add="addStore"
+      @close="showStoreManager = false"
     />
   </div>
 </template>
@@ -169,6 +192,7 @@ function endSession() {
 
 .list-header {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.6rem;
   margin-bottom: 1rem;
 }
