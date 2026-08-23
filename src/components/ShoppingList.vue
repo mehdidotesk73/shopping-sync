@@ -83,6 +83,12 @@ const showStoreManager = ref(false)
 const showImport = ref(false)
 const mdCopied = ref(false)
 const jsonCopied = ref(false)
+const showMenu = ref(false)
+
+function openImportFromMenu() {
+  showMenu.value = false
+  showImport.value = true
+}
 
 const knownCategories = computed(() => allCategories(items.value))
 
@@ -236,32 +242,44 @@ function endSession() {
           {{ listName }}
           <span v-if="shared" class="shared-badge">🔗 Shared</span>
         </h2>
-        <button
-          v-if="!shared"
-          class="btn-secondary share-btn"
-          :disabled="sharing"
-          @click="handleShare"
-        >
-          {{ sharing ? 'Sharing…' : '🔗 Share list' }}
-        </button>
-        <button v-else class="btn-secondary share-btn" @click="copyShareLink">
-          {{ linkCopied ? 'Copied ✓' : '🔗 Copy share link' }}
-        </button>
+        <div class="menu-wrapper">
+          <button
+            class="menu-btn"
+            aria-label="List actions"
+            @click="showMenu = !showMenu"
+          >
+            ⬈
+          </button>
+          <div v-if="showMenu" class="menu-backdrop" @click="showMenu = false"></div>
+          <div v-if="showMenu" class="menu-panel">
+            <button
+              v-if="!shared"
+              class="menu-item"
+              :disabled="sharing"
+              @click="handleShare"
+            >
+              {{ sharing ? 'Sharing…' : '🔗 Share list' }}
+            </button>
+            <button v-else class="menu-item" @click="copyShareLink">
+              {{ linkCopied ? 'Copied ✓' : '🔗 Copy share link' }}
+            </button>
+            <button class="menu-item" @click="openImportFromMenu">⊕ Import list</button>
+            <button class="menu-item" :disabled="!items.length" @click="copyMarkdown">
+              {{ mdCopied ? 'Copied ✓' : '⧉ Copy as Markdown' }}
+            </button>
+            <button class="menu-item" :disabled="!items.length" @click="copyJson">
+              {{ jsonCopied ? 'Copied ✓' : '⧉ Copy as JSON' }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="list-header">
         <button class="btn-primary" @click="openAdd">⊕ Add item</button>
-        <button class="btn-secondary" @click="showImport = true">⊕ Import list</button>
         <button class="btn-secondary" :disabled="!items.length" @click="startSessionFlow">
           Start shopping
         </button>
         <button class="btn-secondary" @click="showStoreManager = true">Edit stores</button>
-        <button class="btn-secondary" :disabled="!items.length" @click="copyMarkdown">
-          {{ mdCopied ? 'Copied ✓' : '⧉ Copy as Markdown' }}
-        </button>
-        <button class="btn-secondary" :disabled="!items.length" @click="copyJson">
-          {{ jsonCopied ? 'Copied ✓' : '⧉ Copy as JSON' }}
-        </button>
       </div>
 
       <p v-if="shareError" class="share-error">Couldn't share: {{ shareError }}</p>
@@ -432,8 +450,67 @@ function endSession() {
   white-space: nowrap;
 }
 
-.share-btn {
+.menu-wrapper {
+  position: relative;
   flex-shrink: 0;
+}
+
+.menu-btn {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--bg-elev-2);
+  color: var(--text);
+  font-size: 1.1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.menu-panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  min-width: 12rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  z-index: 50;
+}
+
+.menu-item {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.9rem;
+  text-align: left;
+  background: var(--bg-elev);
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .share-error {
