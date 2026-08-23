@@ -1,5 +1,7 @@
 [build]
-command = "npm run build"
+# COMMIT_REF is provided automatically by Netlify — this is what makes the footer's build
+# stamp show the actual deployed commit instead of always falling back to "dev".
+command = "VITE_BUILD_ID=$COMMIT_REF npm run build"
 publish = "dist"
 
 [build.environment]
