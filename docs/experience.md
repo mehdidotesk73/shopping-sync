@@ -101,6 +101,19 @@ Emitting declarations for an *app* makes `vue-tsc` demand exported names for eve
 
 (Record major releases here as you merge features. Example format below.)
 
+### v0.2.1 — 2026-08-23
+- **Fixed:** The saved list's remove-confirm button (and the grid's inline-edit cancel/remove
+  icons) could show the wrong row as "armed"/red, both right after a delete and lingering past the
+  3-second auto-reset. Root cause was mobile Safari's stuck-`:hover` behavior — a tap leaves `:hover`
+  active until a later tap lands elsewhere — combined with those buttons using the same red for
+  `:hover` as for the real confirming state. A full rewrite of the arm/confirm state from a single
+  shared "current id" to a per-row `Set<string>` did not fix it, which was the tell that the bug was
+  never in the state logic; wrapping the `:hover` rules in
+  `@media (hover: hover) and (pointer: fine)` (so touch devices never receive them) did. Confirmed
+  fixed on-device.
+- **UI:** Remove-confirm text is now red-text-only, no background fill, per explicit request; the
+  button's size stays fixed across both states so only the text changes.
+
 ### v0.2.0 — 2026-08-23
 - **Added:** Multiple named lists, and sharing — any list can go live via Supabase (real-time
   sync, no accounts, link-only access) while staying fully offline-capable until you choose to
