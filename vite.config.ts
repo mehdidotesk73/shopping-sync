@@ -9,9 +9,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: 'App Name',
-        short_name: 'App',
-        description: 'A web app built with Claude Code',
+        name: 'Shopping Sync',
+        short_name: 'ShopSync',
+        description: 'A mobile-friendly shopping list manager with categories, preferred stores, and organized shopping sessions.',
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',

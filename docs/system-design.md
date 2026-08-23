@@ -26,16 +26,16 @@ This is a Vue 3 + TypeScript + Vite single-page app (SPA) that works as a progre
 │  │  ├─ HelpModal                     │  │
 │  │  ├─ DebugPanel                    │  │
 │  │  ├─ UpdateAvailablePrompt         │  │
-│  │  └─ <your content here>           │  │
+│  │  └─ ShoppingList.vue              │  │
+│  │     ├─ ItemFormModal.vue          │  │
+│  │     └─ SessionView.vue            │  │
 │  └───────────────────────────────────┘  │
 │  ┌───────────────────────────────────┐  │
-│  │  lib/ (pure functions)            │  │
-│  │  ├─ Data fetch & cache            │  │
-│  │  ├─ Computation logic             │  │
-│  │  └─ Utilities                     │  │
-│  └───────────────────────────────────┘  │
-│  ┌───────────────────────────────────┐  │
-│  │  External APIs (if needed)        │  │
+│  │  lib/ (pure functions + state)    │  │
+│  │  ├─ types.ts    (ShoppingItem)    │  │
+│  │  ├─ storage.ts  (localStorage)    │  │
+│  │  ├─ items.ts    (dup/group/etc.)  │  │
+│  │  └─ useShoppingList.ts (reactive) │  │
 │  └───────────────────────────────────┘  │
 └─────────────────────────────────────────┘
 ```
@@ -63,46 +63,63 @@ This is the shell that wraps every page/tab. It provides version checking, updat
 
 Uses CSS custom properties (`--bg-elev`, `--text`, `--border`, etc.) for theming. Dark/light mode via `prefers-color-scheme` media query. Mobile-safe padding with `safe-area-inset` for notch/bottom-bar devices.
 
-## §3 — Data Layer (api/)
+## §3 — Data Model & Storage
 
-Where to put external data fetches. Example structure:
-
-```
-src/api/
-  example.ts       fetch & cache logic
-```
-
-Keep fetches synchronous from the component's perspective using a composable (below) that caches results.
-
-## §4 — Shared Logic (lib/)
-
-Pure functions over already-fetched data. These recompute instantly, no refetch. Example:
-
-```
-src/lib/
-  indicators.ts    e.g., moving average, Bollinger bands
-  compute.ts       custom app logic
-  utils.ts         helpers
-```
-
-Keep functions **pure** — same input → same output, no side effects.
-
-## §5 — Composables
-
-Vue reactive wrappers around data fetches. Example:
+This app has no external data — everything lives in `localStorage` under the key
+`shopping-sync:items`.
 
 ```typescript
-// src/lib/useMyData.ts
-export const useMyData = () => {
-  const data = ref([])
-  onMounted(async () => {
-    data.value = await fetch(...)
-  })
-  return { data }
+// src/lib/types.ts
+interface ShoppingItem {
+  id: string
+  name: string
+  category: string   // '' means uncategorized
+  stores: string[]   // '' / [] means no preferred store
 }
 ```
 
-Use these in components to stay reactive without fetch boilerplate.
+`src/lib/storage.ts` has the two functions that touch `localStorage` directly (`loadItems`,
+`saveItems`), each wrapped in try/catch so private-browsing or quota failures degrade to
+in-memory-only rather than throwing.
+
+## §4 — Shared Logic (lib/)
+
+Pure functions over the in-memory item array. These recompute instantly, no refetch/no I/O:
+
+```
+src/lib/
+  types.ts             ShoppingItem interface
+  storage.ts            localStorage load/save (the only I/O in the app)
+  items.ts              normalizeName, findDuplicate, groupByCategory,
+                        itemsForStore, allStores, allCategories, COMMON_CATEGORIES
+  useShoppingList.ts    the one composable — reactive `items` ref + addItem/updateItem/removeItem
+```
+
+**Duplicate detection** (`findDuplicate` in `items.ts`) is case-insensitive and trims whitespace.
+`addItem`/`updateItem` in `useShoppingList.ts` call it before mutating state; on a match they
+return `{ ok: false, duplicate }` instead of writing, and the caller (`ShoppingList.vue`) surfaces
+an "Edit existing item instead" prompt rather than silently failing.
+
+**Category grouping** (`groupByCategory`) buckets items by `category.trim() || 'Uncategorized'`,
+sorts categories alphabetically with Uncategorized always last, and sorts items within each group
+by name. Used by `SessionView.vue` to render the shop-by-category layout.
+
+Keep functions **pure** — same input → same output, no side effects. `useShoppingList.ts` is the
+one exception (it's a stateful composable, not a pure function) — see §5.
+
+## §5 — Composables
+
+`useShoppingList()` (`src/lib/useShoppingList.ts`) is the app's single source of truth:
+
+```typescript
+const { items, addItem, updateItem, removeItem } = useShoppingList()
+```
+
+- `items` — a reactive `ref<ShoppingItem[]>`, seeded from `loadItems()` on creation
+- a `watch(items, ..., { deep: true })` calls `saveItems()` on every mutation — components never
+  touch `localStorage` directly
+- `addItem`/`updateItem` return `{ ok: true }` or `{ ok: false, duplicate }` (see §4) so the caller
+  can react to a blocked duplicate without throwing
 
 ## §6 — Components
 
@@ -110,9 +127,10 @@ Organized by feature. Keep them thin — mostly templating, logic lives in `lib/
 
 ```
 src/components/
-  HelpModal.vue      (provided)
-  <FeatureA>.vue
-  <FeatureB>.vue
+  HelpModal.vue        renders docs/concepts/overview.md (loaded via a Vite `?raw` import)
+  ShoppingList.vue      owns view state ('list' | 'session-start' | 'session') and useShoppingList()
+  ItemFormModal.vue     add/edit form — name, category (datalist suggestions), store chips
+  SessionView.vue       renders one session: groupByCategory(items) + per-item checkbox + progress
 ```
 
 ## §7 — Build, Deploy & Conventions

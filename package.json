@@ -1,8 +1,8 @@
 {
-  "name": "claude-nocode-webapp",
+  "name": "shopping-sync",
   "version": "0.1.0",
   "type": "module",
-  "description": "A Vue 3 + Vite PWA scaffold for building with Claude Code",
+  "description": "A mobile-friendly shopping list manager with categories, preferred stores, and organized shopping sessions.",
   "scripts": {
     "dev": "vite",
     "build": "vue-tsc -b && vite build",

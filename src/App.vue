@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import HelpModal from './components/HelpModal.vue'
+import ShoppingList from './components/ShoppingList.vue'
 import { debugState, logDebug } from './debug'
 import { reloadLatest } from './pwa'
 
@@ -80,17 +81,15 @@ onMounted(() => {
             </button>
           </div>
         </div>
-        <h1 class="app-title">App Name</h1>
+        <h1 class="app-title">Shopping Sync</h1>
         <button class="help-btn" @click="showHelp = true" aria-label="Help" title="Help">
           ? Help
         </button>
       </div>
     </header>
 
-    <!-- TODO: Your app content goes here -->
     <div class="content">
-      <p>Welcome! Replace this with your app content.</p>
-      <p>Start by customizing the references in CLAUDE.md and describing what you want to build.</p>
+      <ShoppingList />
     </div>
 
     <footer class="debug">

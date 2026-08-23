@@ -42,10 +42,15 @@ Emitting declarations for an *app* makes `vue-tsc` demand exported names for eve
 
 (Record major releases here as you merge features. Example format below.)
 
-### v0.1.0 — [Date]
-- **Added:** Initial scaffold, header/footer wrapper, Help modal
-- **Infrastructure:** Netlify (production + preview deploys), branch-protected `main`
-- **Docs:** TODO, experience, system-design, concepts scaffold
+### v0.1.0 — 2026-08-23
+- **Added:** Core shopping list — item CRUD with category + store tagging, case-insensitive
+  duplicate detection with an "edit existing" prompt, and shopping sessions (all items or one
+  store) grouped by category with a checkable progress view. Help modal now renders real content
+  from `docs/concepts/overview.md`.
+- **Defaults:** Everything persists to `localStorage`; no accounts, no sync between devices yet.
+- **Infrastructure:** Initial scaffold, header/footer wrapper, Netlify (production + preview
+  deploys), branch-protected `main` requiring the `build` check.
+- **Docs:** TODO, experience, system-design, concepts overview all personalized for this app.
 
 ---
 

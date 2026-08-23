@@ -1,14 +1,15 @@
 # About This App
 
-This is your help documentation for end users. Explain what your app does, how to use it, and answer common questions.
-
 ## What is this app?
 
-<REF:purpose>
+Shopping Sync is a shopping list manager. Add, edit, and remove items, optionally tag them with a category (produce, frozen, etc.) and one or more preferred stores (Costco, Trader Joe's, etc.).
 
 ## How do I use it?
 
-<REF:UI-shape>
+- **List view** — see everything on your list. Tap an item to edit it, or the ✕ to remove it.
+- **+ Add item** — enter a name, optionally a category, and optionally the store(s) you prefer to buy it from.
+- **Duplicates** — if you try to add an item whose name already exists, you'll be prompted to edit the existing one instead of creating a second entry.
+- **Start shopping** — pick "All items" or a specific store. You'll get a session view with your items grouped by category, and a checkbox to mark each one off as you shop.
 
 ## Common Questions
 
@@ -18,7 +19,7 @@ A: This is a progressive web app (PWA), which means it caches content locally to
 
 **Q: Can I use this offline?**
 
-A: Yes! Once you've opened the app once, it's cached locally. You can close the browser or turn off wifi and the app will still work (though external data may not fetch without internet).
+A: Yes. Your list is stored on your device (in the browser's local storage), so it works without an internet connection once the app has loaded.
 
 **Q: How do I report a bug?**
 
@@ -26,7 +27,7 @@ A: Take a screenshot and share it with the developer. If the footer shows a debu
 
 **Q: What data is stored on my device?**
 
-A: Data is cached locally for performance and offline capability. No data is sent anywhere unless the app explicitly fetches external data (check the footer's debug panel to see network requests).
+A: Your entire shopping list — item names, categories, and preferred stores — is stored locally in your browser. Nothing is sent to any server.
 
 ---
 
