@@ -50,7 +50,10 @@ const doneCount = computed(() => props.items.filter((i) => checked.value.has(i.i
           @click="toggle(item.id)"
         >
           <input type="checkbox" :checked="checked.has(item.id)" @click.stop="toggle(item.id)" />
-          <span class="item-name">{{ item.name }}</span>
+          <span class="item-name">
+            {{ item.name }}
+            <span v-if="item.quantity" class="item-qty">({{ item.quantity }})</span>
+          </span>
         </li>
       </ul>
     </div>
@@ -124,6 +127,12 @@ const doneCount = computed(() => props.items.filter((i) => checked.value.has(i.i
 
 .item-name {
   font-size: 1rem;
+}
+
+.item-qty {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 400;
 }
 
 .session-item.done .item-name {

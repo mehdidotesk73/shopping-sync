@@ -2,59 +2,64 @@
 import { ref, computed } from 'vue'
 import type { ShoppingItem } from '../lib/types'
 import { useShoppingList } from '../lib/useShoppingList'
-import { allCategories, allStores } from '../lib/items'
-import ItemFormModal from './ItemFormModal.vue'
+import { useKnownStores } from '../lib/useKnownStores'
+import { allCategories, allStores, findDuplicate } from '../lib/items'
+import ItemGridModal from './ItemGridModal.vue'
 import SessionView from './SessionView.vue'
 import { logDebug } from '../debug'
 
 const { items, addItem, updateItem, removeItem } = useShoppingList()
+const { extraStores, addStore } = useKnownStores()
 
 type View = 'list' | 'session-start' | 'session'
 const view = ref<View>('list')
 
-const showForm = ref(false)
-const editing = ref<ShoppingItem | null>(null)
-const duplicate = ref<ShoppingItem | null>(null)
+const showGrid = ref(false)
+const gridInitialItems = ref<ShoppingItem[]>([])
 
 const knownCategories = computed(() => allCategories(items.value))
-const knownStores = computed(() => allStores(items.value))
+const knownStores = computed(() => {
+  const set = new Set<string>(extraStores.value)
+  for (const store of allStores(items.value)) set.add(store)
+  return [...set].sort((a, b) => a.localeCompare(b))
+})
 
 const sortedItems = computed(() =>
   [...items.value].sort((a, b) => a.name.localeCompare(b.name)),
 )
 
 function openAdd() {
-  editing.value = null
-  duplicate.value = null
-  showForm.value = true
+  gridInitialItems.value = []
+  showGrid.value = true
 }
 
 function openEdit(item: ShoppingItem) {
-  editing.value = item
-  duplicate.value = null
-  showForm.value = true
+  gridInitialItems.value = [item]
+  showGrid.value = true
 }
 
-function closeForm() {
-  showForm.value = false
-  editing.value = null
-  duplicate.value = null
+function closeGrid() {
+  showGrid.value = false
 }
 
-function handleSave(input: { name: string; category: string; stores: string[] }) {
-  const result = editing.value ? updateItem(editing.value.id, input) : addItem(input)
-  if (!result.ok) {
-    duplicate.value = result.duplicate
-    return
+type GridRow = { sourceId: string | null; name: string; category: string; stores: string[]; quantity: string }
+
+function handleGridSave(rows: GridRow[]) {
+  for (const row of rows) {
+    // A row whose (possibly just-typed or just-renamed) name matches a different saved
+    // item is treated as an edit of *that* item — same guarantee as the pull-to-edit icon,
+    // so saving never creates a duplicate or silently no-ops even if the user ignored it.
+    const targetId = findDuplicate(items.value, row.name, row.sourceId ?? undefined)?.id ?? row.sourceId ?? null
+    const input = { name: row.name, category: row.category, stores: row.stores, quantity: row.quantity }
+    const result = targetId ? updateItem(targetId, input) : addItem(input)
+    if (result.ok) logDebug(`${targetId ? 'Updated' : 'Added'} item: ${row.name}`)
   }
-  logDebug(`${editing.value ? 'Updated' : 'Added'} item: ${input.name}`)
-  closeForm()
+  closeGrid()
 }
 
-function handleEditDuplicate() {
-  if (!duplicate.value) return
-  editing.value = duplicate.value
-  duplicate.value = null
+function handleAddStore(name: string) {
+  addStore(name)
+  logDebug(`Added store: ${name}`)
 }
 
 function handleRemove(item: ShoppingItem) {
@@ -101,7 +106,10 @@ function endSession() {
       <ul v-else class="item-list">
         <li v-for="item in sortedItems" :key="item.id" class="item-row" @click="openEdit(item)">
           <div class="item-info">
-            <span class="item-name">{{ item.name }}</span>
+            <span class="item-name">
+              {{ item.name }}
+              <span v-if="item.quantity" class="item-qty">({{ item.quantity }})</span>
+            </span>
             <div class="item-tags">
               <span v-if="item.category" class="tag category-tag">{{ item.category }}</span>
               <span v-for="store in item.stores" :key="store" class="tag store-tag">{{ store }}</span>
@@ -140,15 +148,15 @@ function endSession() {
       @end="endSession"
     />
 
-    <ItemFormModal
-      :open="showForm"
-      :editing="editing"
+    <ItemGridModal
+      :open="showGrid"
+      :initial-items="gridInitialItems"
+      :saved-items="items"
       :known-categories="knownCategories"
       :known-stores="knownStores"
-      :duplicate="duplicate"
-      @save="handleSave"
-      @cancel="closeForm"
-      @edit-duplicate="handleEditDuplicate"
+      @save="handleGridSave"
+      @cancel="closeGrid"
+      @add-store="handleAddStore"
     />
   </div>
 </template>
@@ -228,6 +236,12 @@ function endSession() {
 
 .item-name {
   font-size: 1rem;
+}
+
+.item-qty {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  font-weight: 400;
 }
 
 .item-tags {

@@ -3,4 +3,5 @@ export interface ShoppingItem {
   name: string
   category: string
   stores: string[]
+  quantity: string
 }

@@ -8,7 +8,7 @@ function makeId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`
 }
 
-export type ItemInput = { name: string; category: string; stores: string[] }
+export type ItemInput = { name: string; category: string; stores: string[]; quantity: string }
 export type SaveResult = { ok: true } | { ok: false; duplicate: ShoppingItem }
 
 export function useShoppingList() {
@@ -26,6 +26,7 @@ export function useShoppingList() {
       name,
       category: input.category.trim(),
       stores: [...input.stores],
+      quantity: input.quantity.trim(),
     })
     return { ok: true }
   }
@@ -40,6 +41,7 @@ export function useShoppingList() {
     item.name = name
     item.category = input.category.trim()
     item.stores = [...input.stores]
+    item.quantity = input.quantity.trim()
     return { ok: true }
   }
 
