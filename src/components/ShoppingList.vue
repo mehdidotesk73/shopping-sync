@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { ShoppingItem } from '../lib/types'
-import { useShoppingList } from '../lib/useShoppingList'
-import { useStores } from '../lib/useStores'
-import { migrateLegacyStoreData } from '../lib/migrateStores'
+import { useLocalItems } from '../lib/useShoppingList'
+import { useLocalStores } from '../lib/useStores'
+import { useSharedItems } from '../lib/useSharedItems'
+import { useSharedStores } from '../lib/useSharedStores'
+import { shareList, shareUrl } from '../lib/shareList'
 import { allCategories, findDuplicate, itemsForStore } from '../lib/items'
 import { tagColor } from '../lib/tagColor'
 import ItemGridModal from './ItemGridModal.vue'
@@ -11,10 +13,64 @@ import StoreManagerModal from './StoreManagerModal.vue'
 import SessionView from './SessionView.vue'
 import { logDebug } from '../debug'
 
-migrateLegacyStoreData()
+interface Props {
+  listId: string
+  listName: string
+  shared: boolean
+}
 
-const { items, addItem, updateItem, removeItem } = useShoppingList()
-const { stores, addStore, renameStore, removeStore } = useStores()
+interface Emits {
+  (e: 'back'): void
+  (e: 'shared', link: string): void
+}
+
+const props = defineProps<Props>()
+const emit = defineEmits<Emits>()
+
+// props.shared is fixed for this component instance's lifetime — the parent forces a full
+// remount (changing :key) when a list's shared flag flips, so exactly one branch here ever runs.
+const {
+  items,
+  addItem,
+  updateItem,
+  removeItem,
+  connected: itemsConnected,
+  error: itemsError,
+} = props.shared ? useSharedItems(props.listId) : useLocalItems(props.listId)
+const { stores, addStore, renameStore, removeStore } = props.shared
+  ? useSharedStores(props.listId)
+  : useLocalStores(props.listId)
+
+const sharing = ref(false)
+const shareError = ref<string | null>(null)
+const linkCopied = ref(false)
+
+async function handleShare() {
+  if (props.shared || sharing.value) return
+  sharing.value = true
+  shareError.value = null
+  const result = await shareList(props.listId, props.listName, items.value, stores.value)
+  sharing.value = false
+  if (!result.ok) {
+    shareError.value = result.error
+    logDebug(`Share failed: ${result.error}`, 'error')
+    return
+  }
+  logDebug(`Shared list: ${props.listName}`)
+  emit('shared', shareUrl(props.listId))
+}
+
+// The link is just a deterministic function of the list id, so it can always be regenerated —
+// no need to have copied it the first time it was shown.
+async function copyShareLink() {
+  try {
+    await navigator.clipboard.writeText(shareUrl(props.listId))
+    linkCopied.value = true
+    setTimeout(() => (linkCopied.value = false), 1500)
+  } catch {
+    logDebug('clipboard copy failed', 'error')
+  }
+}
 
 type View = 'list' | 'session-start' | 'session'
 const view = ref<View>('list')
@@ -49,7 +105,7 @@ function closeGrid() {
 
 type GridRow = { sourceId: string | null; name: string; category: string; stores: string[]; quantity: string }
 
-function handleGridSave(rows: GridRow[]) {
+async function handleGridSave(rows: GridRow[]) {
   logDebug(`handleGridSave: received ${rows.length} row(s)`)
   for (const row of rows) {
     try {
@@ -58,7 +114,7 @@ function handleGridSave(rows: GridRow[]) {
       // so saving never creates a duplicate or silently no-ops even if the user ignored it.
       const targetId = findDuplicate(items.value, row.name, row.sourceId ?? undefined)?.id ?? row.sourceId ?? null
       const input = { name: row.name, category: row.category, stores: row.stores, quantity: row.quantity }
-      const result = targetId ? updateItem(targetId, input) : addItem(input)
+      const result = targetId ? await updateItem(targetId, input) : await addItem(input)
       if (result.ok) logDebug(`${targetId ? 'Updated' : 'Added'} item: ${row.name}`)
       else logDebug(`Blocked "${row.name}": duplicate of "${result.duplicate.name}"`, 'warn')
     } catch (e) {
@@ -69,8 +125,8 @@ function handleGridSave(rows: GridRow[]) {
   closeGrid()
 }
 
-function handleRemove(item: ShoppingItem) {
-  removeItem(item.id)
+async function handleRemove(item: ShoppingItem) {
+  await removeItem(item.id)
   logDebug(`Removed item: ${item.name}`)
 }
 
@@ -79,11 +135,15 @@ function handleRenameStore(payload: { id: string; name: string }) {
   logDebug(`Renamed store to: ${payload.name}`)
 }
 
-function handleRemoveStore(id: string) {
+async function handleRemoveStore(id: string) {
   const name = storeName(id)
-  for (const item of items.value) {
-    const i = item.stores.indexOf(id)
-    if (i !== -1) item.stores.splice(i, 1)
+  for (const item of items.value.filter((i) => i.stores.includes(id))) {
+    await updateItem(item.id, {
+      name: item.name,
+      category: item.category,
+      quantity: item.quantity,
+      stores: item.stores.filter((s) => s !== id),
+    })
   }
   removeStore(id)
   logDebug(`Deleted store: ${name}`)
@@ -112,6 +172,25 @@ function endSession() {
 <template>
   <div class="shopping-list">
     <template v-if="view === 'list'">
+      <div class="list-title-row">
+        <button class="back-btn" @click="emit('back')">← Lists</button>
+        <h2 class="list-title">
+          {{ listName }}
+          <span v-if="shared" class="shared-badge">🔗 Shared</span>
+        </h2>
+        <button
+          v-if="!shared"
+          class="btn-secondary share-btn"
+          :disabled="sharing"
+          @click="handleShare"
+        >
+          {{ sharing ? 'Sharing…' : '🔗 Share list' }}
+        </button>
+        <button v-else class="btn-secondary share-btn" @click="copyShareLink">
+          {{ linkCopied ? 'Copied ✓' : '🔗 Copy share link' }}
+        </button>
+      </div>
+
       <div class="list-header">
         <button class="btn-primary" @click="openAdd">⊕ Add item</button>
         <button class="btn-secondary" :disabled="!items.length" @click="startSessionFlow">
@@ -120,7 +199,11 @@ function endSession() {
         <button class="btn-secondary" @click="showStoreManager = true">Edit stores</button>
       </div>
 
-      <p v-if="!items.length" class="empty">
+      <p v-if="shareError" class="share-error">Couldn't share: {{ shareError }}</p>
+      <p v-if="itemsError" class="share-error">Couldn't connect to this shared list: {{ itemsError }}</p>
+      <p v-else-if="shared && !itemsConnected" class="connecting">Connecting to shared list…</p>
+
+      <p v-if="!items.length && (!shared || itemsConnected)" class="empty">
         No items yet — tap <strong>⊕ Add item</strong> to get started.
       </p>
 
@@ -200,16 +283,16 @@ function endSession() {
 .list-header {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  gap: 0.4rem;
   margin-bottom: 1rem;
 }
 
 .btn-primary,
 .btn-secondary {
-  min-height: 2.75rem;
-  padding: 0.5rem 1.1rem;
-  border-radius: 0.5rem;
-  font-size: 0.95rem;
+  min-height: 2rem;
+  padding: 0.3rem 0.75rem;
+  border-radius: 0.4rem;
+  font-size: 0.78rem;
   font-weight: 600;
   border: 1px solid var(--border);
 }
@@ -233,6 +316,58 @@ function endSession() {
 .empty {
   color: var(--text-muted);
   padding: 1rem 0;
+}
+
+.list-title-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.75rem;
+}
+
+.back-btn {
+  min-height: 2.5rem;
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  background: var(--bg-elev-2);
+  color: var(--text);
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.list-title {
+  flex: 1;
+  margin: 0;
+  font-size: 1.15rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.shared-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #29b6f6;
+  white-space: nowrap;
+}
+
+.share-btn {
+  flex-shrink: 0;
+}
+
+.share-error {
+  color: var(--danger);
+  font-size: 0.88rem;
+  margin: 0 0 0.75rem;
+}
+
+.connecting {
+  color: var(--text-muted);
+  font-size: 0.88rem;
+  margin: 0 0 0.75rem;
 }
 
 .item-list {

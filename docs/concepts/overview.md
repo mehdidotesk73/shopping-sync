@@ -2,7 +2,15 @@
 
 ## What is this app?
 
-Shopping Sync is a shopping list manager. Add, edit, and remove items, optionally tag them with a category (produce, frozen, etc.), one or more preferred stores (Costco, Trader Joe's, etc.), and a quantity.
+Shopping Sync is a shopping list manager. Add, edit, and remove items, optionally tag them with a category (produce, frozen, etc.), one or more preferred stores (Costco, Trader Joe's, etc.), and a quantity. You can keep several separate lists, and share any of them with other people so everyone sees changes live.
+
+## Lists
+
+- **Your lists** — the first screen you see. Tap a list to open it, **✎** to rename it, **⊖** to remove it (only from your own device — this doesn't affect anyone else's copy), or **⊕ New list** to start another.
+- **🔗 Share list** (on the list's own screen, next to its name) uploads that list and switches it to live sync — you'll get a link. Anyone who opens it sees the same list, and can add, edit, or remove items just like you can; changes on either side show up on the other within a second or two.
+- **🔗 Copy share link** replaces the Share button once a list is shared, so you can always get the link again — you don't have to have copied it the first time.
+- **🔗 Join shared list** (on the "Your lists" screen) lets you paste a share link (or just the code from one) to join a list someone sent you, instead of only being able to join by tapping the link directly.
+- **A shared list needs an internet connection** to show or change anything — that's the trade-off for it being live. A list you haven't shared works fully offline, same as always.
 
 ## How do I use it?
 
@@ -25,7 +33,15 @@ A: This is a progressive web app (PWA), which means it caches content locally to
 
 **Q: Can I use this offline?**
 
-A: Yes. Your list is stored on your device (in the browser's local storage), so it works without an internet connection once the app has loaded.
+A: A list you haven't shared, yes — it's stored on your device (in the browser's local storage), so it works without an internet connection once the app has loaded. A shared list needs a connection, since it's synced live.
+
+**Q: Who can see or change a shared list?**
+
+A: Anyone with the link. There's no login or password — the link itself is what grants access, the same as sharing a Google Doc link. Don't share the link anywhere you wouldn't want strangers to find it.
+
+**Q: Can I stop sharing a list?**
+
+A: Not yet — once a list is shared, it stays shared. You can still remove it from your own device's list (⊖ on "Your lists"), which doesn't affect anyone else who has the link.
 
 **Q: If I rename or delete a store, what happens to my items?**
 
@@ -37,7 +53,7 @@ A: Take a screenshot and share it with the developer. If the footer shows a debu
 
 **Q: What data is stored on my device?**
 
-A: Your entire shopping list — item names, categories, quantities, and your stores — is stored locally in your browser. Nothing is sent to any server.
+A: For a list you haven't shared: everything — item names, categories, quantities, and your stores — is stored locally in your browser, and nothing is sent to any server. For a list you have shared, its items and stores live on the shared server instead, so everyone with the link sees the same data.
 
 ---
 

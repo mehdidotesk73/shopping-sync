@@ -26,6 +26,29 @@ instrumentation is a coin flip. The debug panel already existed for exactly this
 instead of one: add the global catcher *first*, before guessing at a fix, any time a bug reports as
 silent failure with no visible cause.
 
+### A Hover Tooltip Explains Nothing on a Touch Device
+
+The disabled "⊕ Add row" button carried a `title` attribute explaining why it was disabled (no name
+in the current row yet). On desktop that's a helpful tooltip; on a phone there's no hover state to
+trigger it at all, so the button just looked broken — disabled with zero explanation. The user
+reported it as a bug before confirming (when asked) that it was actually the intended guard working
+correctly, just invisible. Fixed by replacing the tooltip with a plain visible line of text next to
+the button. General rule for this app: anything explained only via `title`/hover needs a real,
+on-screen fallback, since the target device never hovers.
+
+### A Build Stamp Nobody Double-Checked — "dev" Was Never Real
+
+`vite.config.ts` falls back to `'dev'` for `__BUILD_ID__` when `VITE_BUILD_ID` isn't set, and
+`netlify.toml`'s build command never set it — so every single deploy, preview or production, from
+the very first one, has shown "build dev" in the footer. The workflow's own instructions (this
+file included) said to "confirm the live build matches the commit you pushed" using that stamp,
+and that check had silently never verified anything, the entire time. It surfaced only when the
+user pasted a debug-log copy that happened to include the build line, and the "dev" looked wrong in
+context of a fresh deploy. Fixed by wiring Netlify's automatic `COMMIT_REF` through the build
+command. Lesson: a verification step that always reads the same placeholder value looks identical
+to one that's actually verifying something — worth occasionally checking that a "confirm X"
+instruction is checking real data, not a constant.
+
 ### Mobile-First Design Constraints
 
 Touch targets need to be at least 44×44px. Avoid hover-only interactions — users on mobile have no hover. Rethink interactions like "expand on hover" as "toggle on tap" or always-expanded. Test regularly on actual mobile devices, not just the browser's responsive mode.
@@ -63,6 +86,23 @@ Emitting declarations for an *app* makes `vue-tsc` demand exported names for eve
 ## Version History
 
 (Record major releases here as you merge features. Example format below.)
+
+### v0.2.0 — 2026-08-23
+- **Added:** Multiple named lists, and sharing — any list can go live via Supabase (real-time
+  sync, no accounts, link-only access) while staying fully offline-capable until you choose to
+  share it. Share a list to get a link; anyone with it sees and edits the same list, changes
+  appearing on both sides within a second or two. Join a shared list either by opening its link or
+  by pasting the link into a "🔗 Join shared list" field. "🔗 Copy share link" lets you get a
+  shared list's link again anytime, not just at the moment you shared it.
+- **UI:** Header action buttons (Add item, Start shopping, Edit stores, Share) restyled as small,
+  moderately-rounded tag-style chips. The saved list's remove button now requires two taps
+  (arms red, "Tap again to remove") instead of removing on one accidental tap. The grid's category/
+  quantity inline editors gained a ⊗ cancel button.
+- **Fixed:** The footer's build stamp had shown "dev" on every deploy since the project began — see
+  the dead-end entry above. Now shows the real deployed commit.
+- **Defaults:** A list stays local (localStorage, offline) unless you explicitly share it. Once
+  shared, always requires a connection — no offline queue for shared lists. No "unshare."
+- **Docs:** system-design, concepts overview, TODO all updated for the multi-list/sharing model.
 
 ### v0.1.0 — 2026-08-23
 - **Added:** Core shopping list. Items (name, category, store(s), quantity) are added/edited in

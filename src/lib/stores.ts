@@ -1,19 +1,18 @@
 import type { Store } from './types'
+import { listStoresKey } from './migrateToLists'
 
-const STORAGE_KEY = 'shopping-sync:stores'
-
-export function loadStores(): Store[] {
+export function loadStores(listId: string): Store[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(listStoresKey(listId))
     return raw ? (JSON.parse(raw) as Store[]) : []
   } catch {
     return []
   }
 }
 
-export function saveStores(stores: Store[]): void {
+export function saveStores(listId: string, stores: Store[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(stores))
+    localStorage.setItem(listStoresKey(listId), JSON.stringify(stores))
   } catch {
     // Storage unavailable — in-memory only for this session.
   }
