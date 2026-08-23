@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { ShoppingItem } from '../lib/types'
+import type { ShoppingItem, Store } from '../lib/types'
 import { useLocalItems } from '../lib/useShoppingList'
 import { useLocalStores } from '../lib/useStores'
 import { useSharedItems } from '../lib/useSharedItems'
@@ -12,6 +12,7 @@ import { itemsToMarkdown, itemsToJson } from '../lib/exportItems'
 import ItemGridModal from './ItemGridModal.vue'
 import StoreManagerModal from './StoreManagerModal.vue'
 import ImportItemsModal from './ImportItemsModal.vue'
+import BulkAssignModal from './BulkAssignModal.vue'
 import SessionView from './SessionView.vue'
 import { logDebug } from '../debug'
 
@@ -89,6 +90,54 @@ const showMenu = ref(false)
 function openImportFromMenu() {
   showMenu.value = false
   showImport.value = true
+}
+
+const showBulkAssign = ref(false)
+const bulkAssignMode = ref<'store' | 'category'>('store')
+const bulkAssignStore = ref<Store | null>(null)
+
+function openBulkStoreAssign(store: Store) {
+  bulkAssignMode.value = 'store'
+  bulkAssignStore.value = store
+  showStoreManager.value = false
+  showBulkAssign.value = true
+}
+
+function openBulkCategoryAssign() {
+  bulkAssignMode.value = 'category'
+  bulkAssignStore.value = null
+  showMenu.value = false
+  showBulkAssign.value = true
+}
+
+async function handleBulkStoreAssign(payload: { storeId: string; itemIds: string[] }) {
+  const selected = new Set(payload.itemIds)
+  let changed = 0
+  for (const item of items.value) {
+    const has = item.stores.includes(payload.storeId)
+    const shouldHave = selected.has(item.id)
+    if (has === shouldHave) continue
+    const newStores = shouldHave ? [...item.stores, payload.storeId] : item.stores.filter((s) => s !== payload.storeId)
+    await updateItem(item.id, { name: item.name, category: item.category, quantity: item.quantity, stores: newStores })
+    changed += 1
+  }
+  logDebug(`Bulk store assign: updated ${changed} item(s) for ${storeName(payload.storeId)}`)
+  showBulkAssign.value = false
+}
+
+async function handleBulkCategoryAssign(payload: { category: string; itemIds: string[] }) {
+  const selected = new Set(payload.itemIds)
+  let changed = 0
+  for (const item of items.value) {
+    const matches = item.category === payload.category
+    const shouldMatch = selected.has(item.id)
+    if (matches === shouldMatch) continue
+    const newCategory = shouldMatch ? payload.category : ''
+    await updateItem(item.id, { name: item.name, category: newCategory, quantity: item.quantity, stores: item.stores })
+    changed += 1
+  }
+  logDebug(`Bulk category assign: updated ${changed} item(s) for "${payload.category}"`)
+  showBulkAssign.value = false
 }
 
 const knownCategories = computed(() => allCategories(items.value))
@@ -271,6 +320,9 @@ async function finishSession(updates: { id: string; checked: boolean }[]) {
               {{ linkCopied ? 'Copied ✓' : '🔗 Copy share link' }}
             </button>
             <button class="menu-item" @click="openImportFromMenu">⊕ Import list</button>
+            <button class="menu-item" :disabled="!items.length" @click="openBulkCategoryAssign">
+              🏷 Bulk assign category
+            </button>
             <button class="menu-item" :disabled="!items.length" @click="copyMarkdown">
               {{ mdCopied ? 'Copied ✓' : '⧉ Copy as Markdown' }}
             </button>
@@ -367,6 +419,7 @@ async function finishSession(updates: { id: string; checked: boolean }[]) {
       @rename="handleRenameStore"
       @remove="handleRemoveStore"
       @add="addStore"
+      @assign="openBulkStoreAssign"
       @close="showStoreManager = false"
     />
 
@@ -375,6 +428,18 @@ async function finishSession(updates: { id: string; checked: boolean }[]) {
       :saved-items="items"
       @import="handleImport"
       @close="showImport = false"
+    />
+
+    <BulkAssignModal
+      :open="showBulkAssign"
+      :items="items"
+      :mode="bulkAssignMode"
+      :store-id="bulkAssignStore?.id"
+      :store-label="bulkAssignStore?.name"
+      :known-categories="knownCategories"
+      @save-store="handleBulkStoreAssign"
+      @save-category="handleBulkCategoryAssign"
+      @close="showBulkAssign = false"
     />
   </div>
 </template>
