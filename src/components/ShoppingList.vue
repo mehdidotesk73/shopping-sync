@@ -8,8 +8,10 @@ import { useSharedStores } from '../lib/useSharedStores'
 import { shareList, shareUrl } from '../lib/shareList'
 import { allCategories, findDuplicate, itemsForStore } from '../lib/items'
 import { tagColor } from '../lib/tagColor'
+import { itemsToMarkdown, itemsToJson } from '../lib/exportItems'
 import ItemGridModal from './ItemGridModal.vue'
 import StoreManagerModal from './StoreManagerModal.vue'
+import ImportItemsModal from './ImportItemsModal.vue'
 import SessionView from './SessionView.vue'
 import { logDebug } from '../debug'
 
@@ -78,6 +80,9 @@ const view = ref<View>('list')
 const showGrid = ref(false)
 const gridInitialItems = ref<ShoppingItem[]>([])
 const showStoreManager = ref(false)
+const showImport = ref(false)
+const mdCopied = ref(false)
+const jsonCopied = ref(false)
 
 const knownCategories = computed(() => allCategories(items.value))
 
@@ -123,6 +128,37 @@ async function handleGridSave(rows: GridRow[]) {
   }
   logDebug(`handleGridSave: done, items now ${items.value.length}`)
   closeGrid()
+}
+
+async function handleImport(names: string[]) {
+  let added = 0
+  for (const name of names) {
+    const result = await addItem({ name, category: '', stores: [], quantity: '' })
+    if (result.ok) added += 1
+    else logDebug(`Import skipped "${name}": duplicate of "${result.duplicate.name}"`, 'warn')
+  }
+  logDebug(`Imported ${added} item(s)`)
+  showImport.value = false
+}
+
+async function copyMarkdown() {
+  try {
+    await navigator.clipboard.writeText(itemsToMarkdown(sortedItems.value, storeName))
+    mdCopied.value = true
+    setTimeout(() => (mdCopied.value = false), 1500)
+  } catch {
+    logDebug('clipboard copy failed', 'error')
+  }
+}
+
+async function copyJson() {
+  try {
+    await navigator.clipboard.writeText(itemsToJson(sortedItems.value, storeName))
+    jsonCopied.value = true
+    setTimeout(() => (jsonCopied.value = false), 1500)
+  } catch {
+    logDebug('clipboard copy failed', 'error')
+  }
 }
 
 // Each item's armed/not-armed state is independent — a Set of ids, not one shared "current"
@@ -215,10 +251,17 @@ function endSession() {
 
       <div class="list-header">
         <button class="btn-primary" @click="openAdd">⊕ Add item</button>
+        <button class="btn-secondary" @click="showImport = true">⊕ Import list</button>
         <button class="btn-secondary" :disabled="!items.length" @click="startSessionFlow">
           Start shopping
         </button>
         <button class="btn-secondary" @click="showStoreManager = true">Edit stores</button>
+        <button class="btn-secondary" :disabled="!items.length" @click="copyMarkdown">
+          {{ mdCopied ? 'Copied ✓' : '⧉ Copy as Markdown' }}
+        </button>
+        <button class="btn-secondary" :disabled="!items.length" @click="copyJson">
+          {{ jsonCopied ? 'Copied ✓' : '⧉ Copy as JSON' }}
+        </button>
       </div>
 
       <p v-if="shareError" class="share-error">Couldn't share: {{ shareError }}</p>
@@ -299,6 +342,13 @@ function endSession() {
       @remove="handleRemoveStore"
       @add="addStore"
       @close="showStoreManager = false"
+    />
+
+    <ImportItemsModal
+      :open="showImport"
+      :saved-items="items"
+      @import="handleImport"
+      @close="showImport = false"
     />
   </div>
 </template>
