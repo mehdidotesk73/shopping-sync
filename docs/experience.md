@@ -4,6 +4,20 @@ Record what you learn as you build: patterns that work, ideas that didn't pan ou
 
 ## What Didn't Work (Gotchas & Dead Ends)
 
+### A Small Pending PR Left Open While a Big One Was Built Went Stale
+
+PR #2 (remove-confirm + a cancel button, two files) was small, already confirmed working
+on-device, and ready to merge. Instead of saying so and asking for it to be merged first, a much
+larger feature (shareable/live lists, ~20 files, several rounds) was built as a separate branch off
+the same, now-increasingly-stale `main`. By the time the big PR merged, #2 had a real conflict in a
+file both touched (`ShoppingList.vue`) and needed a manual merge-and-resolve that would have been
+zero effort if #2 had simply landed first.
+
+Rule worth keeping: when a small, ready PR is sitting open and the next request is unrelated and
+substantially larger, say so and suggest merging the small one first — either the user agrees and
+it's merged before the new branch is even cut, or they say no and at least it was a deliberate
+choice rather than an oversight that surfaces as a conflict later.
+
 ### "Save Does Nothing" — No Console Means No Root Cause Without a Log
 
 The Save button in the item grid stopped working for the user on-device, across a couple of
