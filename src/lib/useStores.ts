@@ -11,10 +11,14 @@ function normalize(name: string): string {
   return name.trim().toLowerCase()
 }
 
-export function useStores() {
-  const stores = ref<Store[]>(loadStores())
+/** Local (localStorage-backed) store registry for one list. */
+export function useLocalStores(listId: string) {
+  const stores = ref<Store[]>(loadStores(listId))
+  // Present for interface parity with useSharedStores, which really can be disconnected/erroring.
+  const connected = ref(true)
+  const error = ref<string | null>(null)
 
-  watch(stores, (val) => saveStores(val), { deep: true })
+  watch(stores, (val) => saveStores(listId, val), { deep: true })
 
   function findByName(name: string, excludeId?: string): Store | undefined {
     const n = normalize(name)
@@ -45,5 +49,5 @@ export function useStores() {
     stores.value = stores.value.filter((s) => s.id !== id)
   }
 
-  return { stores, addStore, renameStore, removeStore }
+  return { stores, addStore, renameStore, removeStore, connected, error }
 }

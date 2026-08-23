@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import HelpModal from './components/HelpModal.vue'
-import ShoppingList from './components/ShoppingList.vue'
+import ShoppingApp from './components/ShoppingApp.vue'
 import { debugState, logDebug } from './debug'
 import { reloadLatest } from './pwa'
 
@@ -89,7 +89,7 @@ onMounted(() => {
     </header>
 
     <div class="content">
-      <ShoppingList />
+      <ShoppingApp />
     </div>
 
     <footer class="debug">
