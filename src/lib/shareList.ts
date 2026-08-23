@@ -56,3 +56,21 @@ export async function fetchSharedListName(listId: string): Promise<string | null
   if (error || !data) return null
   return data.name as string
 }
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** Accepts either a pasted share link or a bare list id; null if neither can be recognized. */
+export function extractListId(input: string): string | null {
+  const trimmed = input.trim()
+  if (!trimmed) return null
+
+  try {
+    const url = new URL(trimmed)
+    const id = url.searchParams.get('list')
+    if (id && UUID_PATTERN.test(id)) return id
+  } catch {
+    // Not a full URL — fall through and check whether the raw text is itself an id.
+  }
+
+  return UUID_PATTERN.test(trimmed) ? trimmed : null
+}

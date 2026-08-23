@@ -3,7 +3,7 @@ import { ref, computed, onMounted } from 'vue'
 import { useLists } from '../lib/useLists'
 import { migrateLegacyStoreData } from '../lib/migrateStores'
 import { migrateToLists } from '../lib/migrateToLists'
-import { fetchSharedListName } from '../lib/shareList'
+import { fetchSharedListName, extractListId } from '../lib/shareList'
 import ListSwitcher from './ListSwitcher.vue'
 import ShoppingList from './ShoppingList.vue'
 import { logDebug } from '../debug'
@@ -20,6 +20,20 @@ const joinError = ref<string | null>(null)
 const justSharedLink = ref<string | null>(null)
 const linkCopied = ref(false)
 
+/** Shared by both the ?list= URL auto-join and the manual paste-a-link join. */
+async function joinListById(id: string): Promise<boolean> {
+  if (lists.value.some((l) => l.id === id)) {
+    activeListId.value = id
+    return true
+  }
+  const name = await fetchSharedListName(id)
+  if (!name) return false
+  registerSharedList(id, name)
+  activeListId.value = id
+  logDebug(`Joined shared list: ${name}`)
+  return true
+}
+
 onMounted(async () => {
   const params = new URLSearchParams(window.location.search)
   const sharedId = params.get('list')
@@ -29,21 +43,26 @@ onMounted(async () => {
   // address bar, and leaving it there would re-run this on every reload.
   window.history.replaceState({}, '', window.location.pathname)
 
-  if (lists.value.some((l) => l.id === sharedId)) {
-    activeListId.value = sharedId
-    return
-  }
-
-  const name = await fetchSharedListName(sharedId)
-  if (!name) {
+  const joined = await joinListById(sharedId)
+  if (!joined) {
     joinError.value = "That shared list link didn't work — it may have been removed."
     logDebug(`Failed to join shared list ${sharedId}`, 'error')
+  }
+})
+
+async function handleJoin(link: string) {
+  joinError.value = null
+  const id = extractListId(link)
+  if (!id) {
+    joinError.value = "That doesn't look like a valid share link."
     return
   }
-  registerSharedList(sharedId, name)
-  activeListId.value = sharedId
-  logDebug(`Joined shared list: ${name}`)
-})
+  const joined = await joinListById(id)
+  if (!joined) {
+    joinError.value = "That shared list link didn't work — it may have been removed."
+    logDebug(`Failed to join shared list ${id}`, 'error')
+  }
+}
 
 const activeList = computed(() => lists.value.find((l) => l.id === activeListId.value) ?? null)
 
@@ -76,8 +95,6 @@ async function copyShareLink() {
 
 <template>
   <div class="shopping-app">
-    <p v-if="joinError" class="join-error">{{ joinError }}</p>
-
     <div v-if="justSharedLink" class="share-banner">
       <p>List shared! Anyone with this link can view and edit it live:</p>
       <code class="share-link">{{ justSharedLink }}</code>
@@ -92,10 +109,12 @@ async function copyShareLink() {
     <ListSwitcher
       v-if="!activeList"
       :lists="lists"
+      :join-error="joinError"
       @open="openList"
       @rename="(payload) => renameList(payload.id, payload.name)"
       @remove="removeList"
       @create="handleCreate"
+      @join="handleJoin"
     />
 
     <ShoppingList
@@ -113,12 +132,6 @@ async function copyShareLink() {
 <style scoped>
 .shopping-app {
   padding: 0.5rem 0;
-}
-
-.join-error {
-  color: var(--danger);
-  font-size: 0.9rem;
-  margin: 0 0 1rem;
 }
 
 .share-banner {

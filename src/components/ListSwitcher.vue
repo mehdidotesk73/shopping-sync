@@ -4,6 +4,7 @@ import type { ListMeta } from '../lib/types'
 
 interface Props {
   lists: ListMeta[]
+  joinError: string | null
 }
 
 interface Emits {
@@ -11,6 +12,7 @@ interface Emits {
   (e: 'rename', payload: { id: string; name: string }): void
   (e: 'remove', id: string): void
   (e: 'create', name: string): void
+  (e: 'join', link: string): void
 }
 
 defineProps<Props>()
@@ -20,6 +22,8 @@ const editingId = ref<string | null>(null)
 const editBuffer = ref('')
 const pendingRemoveId = ref<string | null>(null)
 const newListName = ref('')
+const showJoin = ref(false)
+const joinLink = ref('')
 
 function startEdit(list: ListMeta) {
   pendingRemoveId.value = null
@@ -57,6 +61,13 @@ function createList() {
   if (!name) return
   emit('create', name)
   newListName.value = ''
+}
+
+function submitJoin() {
+  const link = joinLink.value.trim()
+  if (!link) return
+  emit('join', link)
+  joinLink.value = ''
 }
 </script>
 
@@ -116,6 +127,24 @@ function createList() {
         @keyup.enter="createList"
       />
       <button type="button" class="btn-secondary" @click="createList">⊕ New list</button>
+    </div>
+
+    <div class="join-section">
+      <button v-if="!showJoin" type="button" class="btn-secondary join-toggle" @click="showJoin = true">
+        🔗 Join shared list
+      </button>
+      <div v-else class="add-row">
+        <input
+          v-model="joinLink"
+          type="text"
+          placeholder="Paste a share link"
+          autofocus
+          @keyup.enter="submitJoin"
+        />
+        <button type="button" class="btn-secondary" @click="submitJoin">Join</button>
+        <button type="button" class="btn-secondary" @click="showJoin = false">Cancel</button>
+      </div>
+      <p v-if="joinError" class="join-error">{{ joinError }}</p>
     </div>
   </div>
 </template>
@@ -245,6 +274,20 @@ function createList() {
   background: var(--bg);
   color: var(--text);
   font-size: 1rem;
+}
+
+.join-section {
+  margin-top: 0.75rem;
+}
+
+.join-toggle {
+  width: 100%;
+}
+
+.join-error {
+  color: var(--danger);
+  font-size: 0.88rem;
+  margin: 0.5rem 0 0;
 }
 
 .btn-primary,
