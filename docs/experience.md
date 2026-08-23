@@ -4,6 +4,23 @@ Record what you learn as you build: patterns that work, ideas that didn't pan ou
 
 ## What Didn't Work (Gotchas & Dead Ends)
 
+### The Pre-Merge Doc Gate Got Skipped Because the PR Kept Growing
+
+PR #5 started as "import a list + copy as Markdown/JSON," then grew through several more rounds in
+the same open PR — a menu consolidation, a `checked` property and Finish session, two icon swaps —
+each shipped as its own commit and hand-off. By the time the user said "works great" and merged it,
+the branch had drifted a long way from what the original PR description described, and the
+pre-merge `AskUserQuestion` doc gate that's supposed to run right before every merge was never
+triggered — it only fires around "opening/finalizing the PR," and this PR was never re-finalized
+after the early rounds, it just kept getting pushed to and then merged.
+
+Lesson: the gate needs to fire based on "is this about to be merged," not "am I opening a PR right
+now." A PR that's grown well past its original scope through iterative feedback is exactly the case
+most likely to slip through, because there's no single obvious "finalize" moment — just one push
+after another until the user decides they're happy and merges. Treat any merge — including one the
+user does without an explicit hand-off from me first — as a trigger to check whether the gate ran
+for everything in the PR, not just the last round.
+
 ### A Small Pending PR Left Open While a Big One Was Built Went Stale
 
 PR #2 (remove-confirm + a cancel button, two files) was small, already confirmed working
@@ -100,6 +117,21 @@ Emitting declarations for an *app* makes `vue-tsc` demand exported names for eve
 ## Version History
 
 (Record major releases here as you merge features. Example format below.)
+
+### v0.3.0 — 2026-08-23
+- **Added:** Import a pasted list (Apple Notes checklist, plain bullets/numbers, one-per-line, or
+  comma-separated) into item names, with a preview flagging already-on-list and repeated-in-paste
+  names before you confirm. Copy the current list to the clipboard as Markdown (a checklist) or
+  JSON. A shopping session now offers **Finish session** alongside **End session** — Finish writes
+  each item's picked-up state back to the list (a new `checked` property), so starting another
+  session resumes from it instead of starting blank; End still just discards.
+- **UI:** Share list/Copy share link, Import list, and both copy actions moved off the header into
+  one `⧉` menu button next to the list title.
+- **Infrastructure:** Shared lists needed a real Supabase migration (`list_items.checked`, plus the
+  previously-recommended unique index on `(list_id, lower(name))`) — both now run. Local lists
+  needed nothing; missing `checked` on old saved data just defaults to unchecked.
+- **Docs:** This entry and the "pre-merge doc gate got skipped" lesson above were both written
+  after the merge, not before — see that entry for why.
 
 ### v0.2.1 — 2026-08-23
 - **Fixed:** The saved list's remove-confirm button (and the grid's inline-edit cancel/remove
