@@ -11,6 +11,7 @@ import { tagColor } from '../lib/tagColor'
 import { itemsToMarkdown, itemsToJson } from '../lib/exportItems'
 import ItemGridModal from './ItemGridModal.vue'
 import StoreManagerModal from './StoreManagerModal.vue'
+import CategoryManagerModal from './CategoryManagerModal.vue'
 import ImportItemsModal from './ImportItemsModal.vue'
 import BulkAssignModal from './BulkAssignModal.vue'
 import SessionView from './SessionView.vue'
@@ -82,19 +83,32 @@ const view = ref<View>('list')
 const showGrid = ref(false)
 const gridInitialItems = ref<ShoppingItem[]>([])
 const showStoreManager = ref(false)
+const showCategoryManager = ref(false)
 const showImport = ref(false)
 const mdCopied = ref(false)
 const jsonCopied = ref(false)
 const showMenu = ref(false)
+const showItemMenu = ref(false)
 
 function openImportFromMenu() {
   showMenu.value = false
   showImport.value = true
 }
 
+function openStoreManagerFromMenu() {
+  showItemMenu.value = false
+  showStoreManager.value = true
+}
+
+function openCategoryManagerFromMenu() {
+  showItemMenu.value = false
+  showCategoryManager.value = true
+}
+
 const showBulkAssign = ref(false)
 const bulkAssignMode = ref<'store' | 'category'>('store')
 const bulkAssignStore = ref<Store | null>(null)
+const presetCategoryForAssign = ref('')
 
 function openBulkStoreAssign(store: Store) {
   bulkAssignMode.value = 'store'
@@ -103,10 +117,11 @@ function openBulkStoreAssign(store: Store) {
   showBulkAssign.value = true
 }
 
-function openBulkCategoryAssign() {
+function openBulkCategoryAssign(category: string) {
   bulkAssignMode.value = 'category'
   bulkAssignStore.value = null
-  showMenu.value = false
+  presetCategoryForAssign.value = category
+  showCategoryManager.value = false
   showBulkAssign.value = true
 }
 
@@ -320,9 +335,6 @@ async function finishSession(updates: { id: string; checked: boolean }[]) {
               {{ linkCopied ? 'Copied ✓' : '🔗 Copy share link' }}
             </button>
             <button class="menu-item" @click="openImportFromMenu">⊕ Import list</button>
-            <button class="menu-item" :disabled="!items.length" @click="openBulkCategoryAssign">
-              🏷 Bulk assign category
-            </button>
             <button class="menu-item" :disabled="!items.length" @click="copyMarkdown">
               {{ mdCopied ? 'Copied ✓' : '⧉ Copy as Markdown' }}
             </button>
@@ -338,7 +350,20 @@ async function finishSession(updates: { id: string; checked: boolean }[]) {
         <button class="btn-secondary" :disabled="!items.length" @click="startSessionFlow">
           Start shopping
         </button>
-        <button class="btn-secondary" @click="showStoreManager = true">Edit stores</button>
+        <div class="menu-wrapper">
+          <button
+            class="menu-btn"
+            aria-label="Edit stores and categories"
+            @click="showItemMenu = !showItemMenu"
+          >
+            ☰
+          </button>
+          <div v-if="showItemMenu" class="menu-backdrop" @click="showItemMenu = false"></div>
+          <div v-if="showItemMenu" class="menu-panel">
+            <button class="menu-item" @click="openStoreManagerFromMenu">Edit stores</button>
+            <button class="menu-item" @click="openCategoryManagerFromMenu">Edit categories</button>
+          </div>
+        </div>
       </div>
 
       <p v-if="shareError" class="share-error">Couldn't share: {{ shareError }}</p>
@@ -430,6 +455,13 @@ async function finishSession(updates: { id: string; checked: boolean }[]) {
       @close="showImport = false"
     />
 
+    <CategoryManagerModal
+      :open="showCategoryManager"
+      :items="items"
+      @assign="openBulkCategoryAssign"
+      @close="showCategoryManager = false"
+    />
+
     <BulkAssignModal
       :open="showBulkAssign"
       :items="items"
@@ -437,6 +469,7 @@ async function finishSession(updates: { id: string; checked: boolean }[]) {
       :store-id="bulkAssignStore?.id"
       :store-label="bulkAssignStore?.name"
       :known-categories="knownCategories"
+      :preset-category="presetCategoryForAssign"
       @save-store="handleBulkStoreAssign"
       @save-category="handleBulkCategoryAssign"
       @close="showBulkAssign = false"

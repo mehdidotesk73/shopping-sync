@@ -10,6 +10,7 @@ interface Props {
   storeId?: string
   storeLabel?: string
   knownCategories?: string[]
+  presetCategory?: string
 }
 
 interface Emits {
@@ -38,7 +39,7 @@ watch(
   () => props.open,
   (isOpen) => {
     if (!isOpen) return
-    categoryInput.value = ''
+    categoryInput.value = props.presetCategory ?? ''
     resetSelection()
   },
 )
@@ -56,6 +57,14 @@ function toggle(id: string) {
   else selected.value.add(id)
 }
 
+function selectAll() {
+  selected.value = new Set(props.items.map((i) => i.id))
+}
+
+function deselectAll() {
+  selected.value = new Set()
+}
+
 function save() {
   if (!canSave.value) return
   if (props.mode === 'store') {
@@ -70,7 +79,13 @@ function save() {
   <div v-if="open" class="modal-overlay" @click="emit('close')">
     <div class="modal-content" @click.stop>
       <h2 class="modal-title">
-        {{ mode === 'store' ? `Assign items to ${storeLabel}` : 'Bulk assign category' }}
+        {{
+          mode === 'store'
+            ? `Assign items to ${storeLabel}`
+            : categoryInput.trim()
+              ? `Assign items to ${categoryInput.trim()}`
+              : 'Bulk assign category'
+        }}
       </h2>
 
       <div v-if="mode === 'category'" class="category-input-row">
@@ -89,10 +104,18 @@ function save() {
       <p v-if="mode === 'category' && !showChecklist" class="modal-hint">
         Type or pick a category above to see and select items.
       </p>
-      <p v-else class="modal-hint">
-        {{ selected.size }} of {{ items.length }} selected. Items already carrying it are
-        pre-checked — uncheck to remove it.
-      </p>
+      <template v-else>
+        <div class="select-all-row">
+          <p class="modal-hint">
+            {{ selected.size }} of {{ items.length }} selected. Items already carrying it are
+            pre-checked — uncheck to remove it.
+          </p>
+          <div class="select-all-actions">
+            <button type="button" class="link-btn" @click="selectAll">Select all</button>
+            <button type="button" class="link-btn" @click="deselectAll">Deselect all</button>
+          </div>
+        </div>
+      </template>
 
       <div v-if="showChecklist" class="group-list">
         <div v-for="group in groups" :key="group.category" class="category-group">
@@ -176,6 +199,34 @@ function save() {
   margin: 0 0 0.75rem;
   color: var(--text-muted);
   font-size: 0.85rem;
+}
+
+.select-all-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.select-all-row .modal-hint {
+  flex: 1;
+  min-width: 0;
+}
+
+.select-all-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: 0.5rem;
+}
+
+.link-btn {
+  border: none;
+  background: transparent;
+  color: var(--accent-blue);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0;
+  white-space: nowrap;
 }
 
 .group-list {
