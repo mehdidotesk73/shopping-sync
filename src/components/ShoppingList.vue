@@ -253,8 +253,11 @@ function endSession() {
 
 .tag {
   font-size: 0.72rem;
-  padding: 0.15rem 0.5rem;
+  padding: 0.05rem 0.35rem;
   border-radius: 999px;
+  border: 1px solid hsl(var(--tag-hue), 60%, var(--tag-lightness));
+  color: hsl(var(--tag-hue), 60%, var(--tag-lightness));
+  background: transparent;
   white-space: nowrap;
 }
 

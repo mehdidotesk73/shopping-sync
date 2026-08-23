@@ -461,7 +461,6 @@ function save() {
   border: 1px solid var(--border);
   border-radius: 0.6rem;
   margin-bottom: 0.6rem;
-  overflow: hidden;
 }
 
 .grid-row {
@@ -472,6 +471,14 @@ function save() {
 
 .grid-row:last-child {
   border-bottom: none;
+}
+
+.grid-row:first-child {
+  border-radius: 0.6rem 0.6rem 0 0;
+}
+
+.grid-row:last-child {
+  border-radius: 0 0 0.6rem 0.6rem;
 }
 
 .grid-row.duplicate {
@@ -549,16 +556,23 @@ function save() {
 .tag {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
+  gap: 0.2rem;
   font-size: 0.8rem;
-  padding: 0.25rem 0.55rem;
+  padding: 0.1rem 0.4rem;
   border-radius: 999px;
+  border: 1px solid transparent;
+  background: transparent;
   white-space: nowrap;
   cursor: pointer;
 }
 
+.color-tag {
+  border-color: hsl(var(--tag-hue), 60%, var(--tag-lightness));
+  color: hsl(var(--tag-hue), 60%, var(--tag-lightness));
+}
+
 .neutral-tag {
-  background: var(--bg-elev-2);
+  border-color: var(--border);
   color: var(--text);
 }
 
