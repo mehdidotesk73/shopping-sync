@@ -237,7 +237,8 @@ function endSession() {
             aria-label="Remove item"
             @click.stop="handleRemoveTap(item)"
           >
-            {{ pendingRemoveId === item.id ? 'Tap again to remove' : '⊖' }}
+            <span v-if="pendingRemoveId === item.id">Tap again to remove ⊖</span>
+            <span v-else>⊖</span>
           </button>
         </li>
       </ul>
@@ -446,15 +447,18 @@ function endSession() {
 
 .remove-btn {
   flex-shrink: 0;
-  min-width: 2.5rem;
+  min-width: 10rem;
   height: 2.5rem;
-  padding: 0 0.5rem;
+  padding: 0 0.6rem;
   border: none;
   border-radius: 0.4rem;
   background: transparent;
   color: var(--text-muted);
-  font-size: 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
   white-space: nowrap;
+  text-align: right;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .remove-btn:hover {
@@ -464,8 +468,6 @@ function endSession() {
 .remove-btn.confirming {
   background: var(--danger);
   color: #fff;
-  font-size: 0.78rem;
-  font-weight: 600;
 }
 
 .session-start-header {
