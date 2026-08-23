@@ -12,6 +12,7 @@ interface Emits {
   (e: 'rename', payload: { id: string; name: string }): void
   (e: 'remove', id: string): void
   (e: 'add', name: string): void
+  (e: 'assign', store: Store): void
   (e: 'close'): void
 }
 
@@ -134,6 +135,9 @@ function addNewStore() {
               <span class="store-count">({{ itemCount(store.id) }})</span>
             </span>
             <div class="row-actions">
+              <button type="button" class="btn-secondary assign-btn" @click="emit('assign', store)">
+                Assign items
+              </button>
               <button type="button" class="icon-btn rename-icon" title="Rename store" @click="startEdit(store)">
                 ✎
               </button>
@@ -236,7 +240,15 @@ function addNewStore() {
 
 .row-actions {
   display: flex;
+  align-items: center;
   gap: 0.2rem;
+}
+
+.assign-btn {
+  min-height: 2rem;
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
 }
 
 .icon-btn {

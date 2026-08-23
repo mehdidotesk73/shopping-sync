@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
-import type { ShoppingItem } from '../lib/types'
+import type { ShoppingItem, Store } from '../lib/types'
 import { useLocalItems } from '../lib/useShoppingList'
 import { useLocalStores } from '../lib/useStores'
 import { useSharedItems } from '../lib/useSharedItems'
@@ -11,7 +11,9 @@ import { tagColor } from '../lib/tagColor'
 import { itemsToMarkdown, itemsToJson } from '../lib/exportItems'
 import ItemGridModal from './ItemGridModal.vue'
 import StoreManagerModal from './StoreManagerModal.vue'
+import CategoryManagerModal from './CategoryManagerModal.vue'
 import ImportItemsModal from './ImportItemsModal.vue'
+import BulkAssignModal from './BulkAssignModal.vue'
 import SessionView from './SessionView.vue'
 import { logDebug } from '../debug'
 
@@ -81,14 +83,76 @@ const view = ref<View>('list')
 const showGrid = ref(false)
 const gridInitialItems = ref<ShoppingItem[]>([])
 const showStoreManager = ref(false)
+const showCategoryManager = ref(false)
 const showImport = ref(false)
 const mdCopied = ref(false)
 const jsonCopied = ref(false)
 const showMenu = ref(false)
+const showItemMenu = ref(false)
 
 function openImportFromMenu() {
   showMenu.value = false
   showImport.value = true
+}
+
+function openStoreManagerFromMenu() {
+  showItemMenu.value = false
+  showStoreManager.value = true
+}
+
+function openCategoryManagerFromMenu() {
+  showItemMenu.value = false
+  showCategoryManager.value = true
+}
+
+const showBulkAssign = ref(false)
+const bulkAssignMode = ref<'store' | 'category'>('store')
+const bulkAssignStore = ref<Store | null>(null)
+const presetCategoryForAssign = ref('')
+
+function openBulkStoreAssign(store: Store) {
+  bulkAssignMode.value = 'store'
+  bulkAssignStore.value = store
+  showStoreManager.value = false
+  showBulkAssign.value = true
+}
+
+function openBulkCategoryAssign(category: string) {
+  bulkAssignMode.value = 'category'
+  bulkAssignStore.value = null
+  presetCategoryForAssign.value = category
+  showCategoryManager.value = false
+  showBulkAssign.value = true
+}
+
+async function handleBulkStoreAssign(payload: { storeId: string; itemIds: string[] }) {
+  const selected = new Set(payload.itemIds)
+  let changed = 0
+  for (const item of items.value) {
+    const has = item.stores.includes(payload.storeId)
+    const shouldHave = selected.has(item.id)
+    if (has === shouldHave) continue
+    const newStores = shouldHave ? [...item.stores, payload.storeId] : item.stores.filter((s) => s !== payload.storeId)
+    await updateItem(item.id, { name: item.name, category: item.category, quantity: item.quantity, stores: newStores })
+    changed += 1
+  }
+  logDebug(`Bulk store assign: updated ${changed} item(s) for ${storeName(payload.storeId)}`)
+  showBulkAssign.value = false
+}
+
+async function handleBulkCategoryAssign(payload: { category: string; itemIds: string[] }) {
+  const selected = new Set(payload.itemIds)
+  let changed = 0
+  for (const item of items.value) {
+    const matches = item.category === payload.category
+    const shouldMatch = selected.has(item.id)
+    if (matches === shouldMatch) continue
+    const newCategory = shouldMatch ? payload.category : ''
+    await updateItem(item.id, { name: item.name, category: newCategory, quantity: item.quantity, stores: item.stores })
+    changed += 1
+  }
+  logDebug(`Bulk category assign: updated ${changed} item(s) for "${payload.category}"`)
+  showBulkAssign.value = false
 }
 
 const knownCategories = computed(() => allCategories(items.value))
@@ -286,7 +350,20 @@ async function finishSession(updates: { id: string; checked: boolean }[]) {
         <button class="btn-secondary" :disabled="!items.length" @click="startSessionFlow">
           Start shopping
         </button>
-        <button class="btn-secondary" @click="showStoreManager = true">Edit stores</button>
+        <div class="menu-wrapper">
+          <button
+            class="menu-btn"
+            aria-label="Edit stores and categories"
+            @click="showItemMenu = !showItemMenu"
+          >
+            ☰
+          </button>
+          <div v-if="showItemMenu" class="menu-backdrop" @click="showItemMenu = false"></div>
+          <div v-if="showItemMenu" class="menu-panel">
+            <button class="menu-item" @click="openStoreManagerFromMenu">Edit stores</button>
+            <button class="menu-item" @click="openCategoryManagerFromMenu">Edit categories</button>
+          </div>
+        </div>
       </div>
 
       <p v-if="shareError" class="share-error">Couldn't share: {{ shareError }}</p>
@@ -367,6 +444,7 @@ async function finishSession(updates: { id: string; checked: boolean }[]) {
       @rename="handleRenameStore"
       @remove="handleRemoveStore"
       @add="addStore"
+      @assign="openBulkStoreAssign"
       @close="showStoreManager = false"
     />
 
@@ -375,6 +453,26 @@ async function finishSession(updates: { id: string; checked: boolean }[]) {
       :saved-items="items"
       @import="handleImport"
       @close="showImport = false"
+    />
+
+    <CategoryManagerModal
+      :open="showCategoryManager"
+      :items="items"
+      @assign="openBulkCategoryAssign"
+      @close="showCategoryManager = false"
+    />
+
+    <BulkAssignModal
+      :open="showBulkAssign"
+      :items="items"
+      :mode="bulkAssignMode"
+      :store-id="bulkAssignStore?.id"
+      :store-label="bulkAssignStore?.name"
+      :known-categories="knownCategories"
+      :preset-category="presetCategoryForAssign"
+      @save-store="handleBulkStoreAssign"
+      @save-category="handleBulkCategoryAssign"
+      @close="showBulkAssign = false"
     />
   </div>
 </template>
