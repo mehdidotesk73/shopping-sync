@@ -427,11 +427,11 @@ function save() {
         type="button"
         class="btn-secondary add-row-btn"
         :disabled="!canAddRow"
-        :title="canAddRow ? '' : 'Enter a name for the current row first'"
         @click="addRow"
       >
         ⊕ Add row
       </button>
+      <p v-if="!canAddRow" class="add-row-hint">Enter a name above to add another row.</p>
 
       <div class="modal-actions">
         <button class="btn-secondary" @click="emit('cancel')">Cancel</button>
@@ -732,12 +732,18 @@ function save() {
 
 .add-row-btn {
   width: 100%;
-  margin-bottom: 1rem;
 }
 
 .add-row-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.add-row-hint {
+  margin: 0.3rem 0 1rem;
+  color: var(--text-muted);
+  font-size: 0.78rem;
+  text-align: center;
 }
 
 .modal-actions {
