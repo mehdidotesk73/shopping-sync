@@ -43,6 +43,7 @@ const { stores, addStore, renameStore, removeStore } = props.shared
 
 const sharing = ref(false)
 const shareError = ref<string | null>(null)
+const linkCopied = ref(false)
 
 async function handleShare() {
   if (props.shared || sharing.value) return
@@ -57,6 +58,18 @@ async function handleShare() {
   }
   logDebug(`Shared list: ${props.listName}`)
   emit('shared', shareUrl(props.listId))
+}
+
+// The link is just a deterministic function of the list id, so it can always be regenerated —
+// no need to have copied it the first time it was shown.
+async function copyShareLink() {
+  try {
+    await navigator.clipboard.writeText(shareUrl(props.listId))
+    linkCopied.value = true
+    setTimeout(() => (linkCopied.value = false), 1500)
+  } catch {
+    logDebug('clipboard copy failed', 'error')
+  }
 }
 
 type View = 'list' | 'session-start' | 'session'
@@ -181,6 +194,9 @@ function endSession() {
         >
           {{ sharing ? 'Sharing…' : '🔗 Share list' }}
         </button>
+        <button v-else class="btn-secondary" @click="copyShareLink">
+          {{ linkCopied ? 'Copied ✓' : '🔗 Copy share link' }}
+        </button>
       </div>
 
       <p v-if="shareError" class="share-error">Couldn't share: {{ shareError }}</p>
@@ -275,7 +291,7 @@ function endSession() {
 .btn-secondary {
   min-height: 2.75rem;
   padding: 0.5rem 1.1rem;
-  border-radius: 0.5rem;
+  border-radius: 999px;
   font-size: 0.95rem;
   font-weight: 600;
   border: 1px solid var(--border);
