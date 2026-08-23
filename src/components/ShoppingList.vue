@@ -178,6 +178,17 @@ function endSession() {
           {{ listName }}
           <span v-if="shared" class="shared-badge">🔗 Shared</span>
         </h2>
+        <button
+          v-if="!shared"
+          class="btn-secondary share-btn"
+          :disabled="sharing"
+          @click="handleShare"
+        >
+          {{ sharing ? 'Sharing…' : '🔗 Share list' }}
+        </button>
+        <button v-else class="btn-secondary share-btn" @click="copyShareLink">
+          {{ linkCopied ? 'Copied ✓' : '🔗 Copy share link' }}
+        </button>
       </div>
 
       <div class="list-header">
@@ -186,17 +197,6 @@ function endSession() {
           Start shopping
         </button>
         <button class="btn-secondary" @click="showStoreManager = true">Edit stores</button>
-        <button
-          v-if="!shared"
-          class="btn-secondary"
-          :disabled="sharing"
-          @click="handleShare"
-        >
-          {{ sharing ? 'Sharing…' : '🔗 Share list' }}
-        </button>
-        <button v-else class="btn-secondary" @click="copyShareLink">
-          {{ linkCopied ? 'Copied ✓' : '🔗 Copy share link' }}
-        </button>
       </div>
 
       <p v-if="shareError" class="share-error">Couldn't share: {{ shareError }}</p>
@@ -291,7 +291,7 @@ function endSession() {
 .btn-secondary {
   min-height: 2rem;
   padding: 0.3rem 0.75rem;
-  border-radius: 999px;
+  border-radius: 0.4rem;
   font-size: 0.78rem;
   font-weight: 600;
   border: 1px solid var(--border);
@@ -337,6 +337,7 @@ function endSession() {
 }
 
 .list-title {
+  flex: 1;
   margin: 0;
   font-size: 1.15rem;
   display: flex;
@@ -351,6 +352,10 @@ function endSession() {
   font-weight: 600;
   color: #29b6f6;
   white-space: nowrap;
+}
+
+.share-btn {
+  flex-shrink: 0;
 }
 
 .share-error {
