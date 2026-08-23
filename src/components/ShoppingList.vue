@@ -255,7 +255,7 @@ async function finishSession(updates: { id: string; checked: boolean }[]) {
             aria-label="List actions"
             @click="showMenu = !showMenu"
           >
-            ⮺
+            ⧉
           </button>
           <div v-if="showMenu" class="menu-backdrop" @click="showMenu = false"></div>
           <div v-if="showMenu" class="menu-panel">
