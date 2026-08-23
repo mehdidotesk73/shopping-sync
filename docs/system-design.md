@@ -26,23 +26,39 @@ This is a Vue 3 + TypeScript + Vite single-page app (SPA) that works as a progre
 │  │  ├─ HelpModal                     │  │
 │  │  ├─ DebugPanel                    │  │
 │  │  ├─ UpdateAvailablePrompt         │  │
-│  │  └─ ShoppingList.vue              │  │
-│  │     ├─ ItemGridModal.vue          │  │
-│  │     ├─ StoreManagerModal.vue      │  │
-│  │     └─ SessionView.vue            │  │
+│  │  └─ ShoppingApp.vue               │  │
+│  │     ├─ ListSwitcher.vue           │  │
+│  │     └─ ShoppingList.vue           │  │
+│  │        ├─ ItemGridModal.vue       │  │
+│  │        ├─ StoreManagerModal.vue   │  │
+│  │        └─ SessionView.vue         │  │
 │  └───────────────────────────────────┘  │
 │  ┌───────────────────────────────────┐  │
 │  │  lib/ (pure functions + state)    │  │
-│  │  ├─ types.ts    (ShoppingItem,    │  │
-│  │  │               Store)          │  │
-│  │  ├─ storage.ts, stores.ts        │  │
-│  │  │   (localStorage)              │  │
-│  │  ├─ migrateStores.ts (one-time   │  │
-│  │  │   upgrade of old saved data)  │  │
-│  │  ├─ items.ts    (dup/group/etc.) │  │
-│  │  ├─ tagColor.ts (ghost-tag hue)  │  │
-│  │  ├─ useShoppingList.ts (reactive)│  │
-│  │  └─ useStores.ts (reactive)      │  │
+│  │  ├─ types.ts (ShoppingItem,       │  │
+│  │  │             Store, ListMeta)   │  │
+│  │  ├─ storage.ts, stores.ts,        │  │
+│  │  │   lists.ts (localStorage)      │  │
+│  │  ├─ migrateStores.ts,             │  │
+│  │  │   migrateToLists.ts (one-time  │  │
+│  │  │   upgrades of old saved data)  │  │
+│  │  ├─ items.ts    (dup/group/etc.)  │  │
+│  │  ├─ tagColor.ts (ghost-tag hue)   │  │
+│  │  ├─ useShoppingList.ts,           │  │
+│  │  │   useStores.ts (local/         │  │
+│  │  │   localStorage-backed)         │  │
+│  │  ├─ useLists.ts (list registry)   │  │
+│  │  ├─ supabaseClient.ts             │  │
+│  │  ├─ useSharedItems.ts,            │  │
+│  │  │   useSharedStores.ts (Supabase │  │
+│  │  │   + realtime-backed)           │  │
+│  │  └─ shareList.ts (upload, share   │  │
+│  │      links, join-by-id/link)      │  │
+│  └───────────────────────────────────┘  │
+│  ┌───────────────────────────────────┐  │
+│  │  Supabase (hosted, opt-in)        │  │
+│  │  lists / list_items / list_stores │  │
+│  │  — realtime, public RLS by id     │  │
 │  └───────────────────────────────────┘  │
 └─────────────────────────────────────────┘
 ```
@@ -183,8 +199,13 @@ Organized by feature. Keep them thin — mostly templating, logic lives in `lib/
 ```
 src/components/
   HelpModal.vue          renders docs/concepts/overview.md (loaded via a Vite `?raw` import)
-  ShoppingList.vue        owns view state ('list' | 'session-start' | 'session'), useShoppingList(),
-                          useStores(), and the store-id ↔ name resolution the other components need
+  ShoppingApp.vue         top-level: owns useLists(), the ?list= URL auto-join, the "just shared"
+                          link banner, and switches between ListSwitcher.vue and ShoppingList.vue
+  ListSwitcher.vue        create/rename/remove-from-device lists; "🔗 Join shared list" (paste a
+                          link or bare id — see §7)
+  ShoppingList.vue        owns view state ('list' | 'session-start' | 'session'), picks local vs.
+                          shared item/store composables (see §7), and the store-id ↔ name
+                          resolution the other components need
   ItemGridModal.vue       bulk add/edit grid: name input + category/store/quantity as tags (§4's
                           tagColor for category/store, a neutral ghost tag for quantity). Empty-state
                           triggers render as labeled tags too ("Category ⊕" gray, "Store ⊕" light
@@ -197,13 +218,77 @@ src/components/
   SessionView.vue         renders one session: groupByCategory(items) + per-item checkbox + progress
 ```
 
-## §7 — Build, Deploy & Conventions
+## §7 — Multi-List & Sharing (Supabase)
+
+### Data model
+
+`ListMeta { id, name, shared }` (`src/lib/types.ts`) is the registry entry for one list, persisted
+via `src/lib/lists.ts` under `shopping-sync:lists` (array) and `shopping-sync:activeListId`. A
+**local** list's items/stores live under per-list keys — `shopping-sync:list:<id>:items` /
+`:stores` (helpers `listItemsKey`/`listStoresKey` in `src/lib/migrateToLists.ts`, used by
+`storage.ts`/`stores.ts`) — and never leave the device. A **shared** list's data lives in Supabase
+instead; once shared, that list always needs a connection (no offline mode for it, by design).
+
+### Choosing local vs. shared composables
+
+`ShoppingList.vue` picks `useLocalItems`/`useLocalStores` or `useSharedItems`/`useSharedStores`
+based on its `shared` prop, once, at `setup()`. That prop is guaranteed constant for the
+component instance's whole lifetime because the parent (`ShoppingApp.vue`) forces a full remount
+(`:key="`${id}:${shared}`"`) whenever a list's shared flag flips — which is what lets a plain
+ternary select one composable without breaking Vue's rule against calling composables
+conditionally on something that can change mid-lifecycle.
+
+### Sharing a list
+
+`shareList()` (`src/lib/shareList.ts`) uploads a local list's current items/stores into Supabase in
+one shot, using the list's own (already-UUID) id as the `lists.id` primary key — no id remapping
+needed anywhere else. `ShoppingList.vue`'s `handleShare()` calls this, then emits `'shared'` with
+the resulting URL; `ShoppingApp.vue` sets that list's `ListMeta.shared = true` (triggering the
+remount above) and shows the link in a dismissible banner. `shareUrl(listId)` is a pure function of
+the id, so **"Copy share link"** can regenerate it any time afterward — nothing has to be
+remembered from the moment of sharing.
+
+### Realtime sync
+
+`useSharedItems`/`useSharedStores` fetch the list's rows once on mount, then subscribe to a
+Supabase Realtime channel filtered to that `list_id` (`postgres_changes` on `list_items`/
+`list_stores`). That channel is the **single source of truth** — `items`/`stores` only ever change
+via `upsertLocal`/`removeLocal`, called either by the realtime callback or optimistically by a local
+write, so your own edits feel instant and the realtime echo of your own write is a harmless
+no-op re-apply by id. `addItem`/`updateItem`/`removeItem` are `async` here (a real network call);
+the local composables' equivalents are `async` too, purely for interface parity, so
+`ShoppingList.vue`'s save/duplicate-detection logic is identical regardless of which is live.
+
+### Joining a list
+
+Two entry points, one function: `ShoppingApp.vue`'s `joinListById(id)`. Opening a share link
+(`?list=<id>`) triggers it from `onMounted`; the **🔗 Join shared list** field on
+`ListSwitcher.vue` triggers it after `extractListId()` pulls an id out of either a pasted full link
+or a bare id. Either way: an already-known list just switches; an unknown one is looked up via
+`fetchSharedListName()` and registered locally (`useLists().registerSharedList`) before switching.
+
+### Supabase schema
+
+Three tables — `lists`, `list_items`, `list_stores` — with RLS enabled but fully public
+(`using (true)` on every policy): the security model is "anyone who has the list's id can read/
+write it," matching the "link-only, no login" decision made for this feature. `list_items.store_ids`
+is `uuid[]`. A recommended (optional) `unique index on (list_id, lower(name))` on `list_items`
+backstops the client-side duplicate check against a race between two simultaneous writers.
+
+### Configuration
+
+Requires `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` as build-time env vars (Netlify: Site
+configuration → Environment variables). `src/lib/supabaseClient.ts` exports `null` if either is
+missing, and every shared-list function checks for that and fails gracefully (a message via
+`logDebug`, not a crash) instead of assuming they're set.
+
+## §8 — Build, Deploy & Conventions
 
 **Local dev:** `npm run dev` (hot reload at http://localhost:5173)
 
 **Build before commit:** `npm run build` (catches TS errors + template parse errors)
 
-**Production and preview, both via Netlify** (see `netlify.toml`): `main` pushes build production; every other branch/PR gets its own Deploy Preview.
+**Production and preview, both via Netlify** (see `netlify.toml`): `main` pushes build production; every other branch/PR gets its own Deploy Preview. The build command passes Netlify's automatic `COMMIT_REF` through as `VITE_BUILD_ID`, which is what makes the footer's build stamp show the real deployed commit instead of vite.config.ts's `'dev'` fallback.
 
 **PR build check:** `.github/workflows/ci.yml` runs `npm run build` on every PR — this is the `build` status check the branch ruleset requires. It doesn't deploy anything.
 
@@ -213,7 +298,7 @@ src/components/
 - CSS: BEM or utility classes (avoid specificity wars)
 - Types: keep in component file or `types/` folder
 
-## §8 — PWA & Service Worker
+## §9 — PWA & Service Worker
 
 `pwa.ts` handles:
 - Service worker registration
@@ -225,7 +310,7 @@ src/components/
 
 Service worker is generated by Vite + `vite-plugin-pwa` (auto-configured).
 
-## §9 — Glossary
+## §10 — Glossary
 
 - **SPA** — Single-Page App (no server-side rendering, runs entirely in the browser)
 - **PWA** — Progressive Web App (works offline, installable like a native app)

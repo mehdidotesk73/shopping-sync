@@ -11,12 +11,20 @@ function makeId(): string {
 export type ItemInput = { name: string; category: string; stores: string[]; quantity: string }
 export type SaveResult = { ok: true } | { ok: false; duplicate: ShoppingItem }
 
-export function useShoppingList() {
-  const items = ref<ShoppingItem[]>(loadItems())
+/**
+ * Local (localStorage-backed) item store for one list. `addItem`/`updateItem`/`removeItem` are
+ * async to match `useSharedItems`'s interface (a network call there) even though these resolve
+ * immediately — callers can `await` either without caring which kind of list they're talking to.
+ */
+export function useLocalItems(listId: string) {
+  const items = ref<ShoppingItem[]>(loadItems(listId))
+  // Present for interface parity with useSharedItems, which really can be disconnected/erroring.
+  const connected = ref(true)
+  const error = ref<string | null>(null)
 
-  watch(items, (val) => saveItems(val), { deep: true })
+  watch(items, (val) => saveItems(listId, val), { deep: true })
 
-  function addItem(input: ItemInput): SaveResult {
+  async function addItem(input: ItemInput): Promise<SaveResult> {
     const name = input.name.trim()
     const duplicate = findDuplicate(items.value, name)
     if (duplicate) return { ok: false, duplicate }
@@ -31,7 +39,7 @@ export function useShoppingList() {
     return { ok: true }
   }
 
-  function updateItem(id: string, input: ItemInput): SaveResult {
+  async function updateItem(id: string, input: ItemInput): Promise<SaveResult> {
     const name = input.name.trim()
     const duplicate = findDuplicate(items.value, name, id)
     if (duplicate) return { ok: false, duplicate }
@@ -45,9 +53,9 @@ export function useShoppingList() {
     return { ok: true }
   }
 
-  function removeItem(id: string): void {
+  async function removeItem(id: string): Promise<void> {
     items.value = items.value.filter((i) => i.id !== id)
   }
 
-  return { items, addItem, updateItem, removeItem }
+  return { items, addItem, updateItem, removeItem, connected, error }
 }

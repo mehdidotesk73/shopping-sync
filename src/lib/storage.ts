@@ -1,19 +1,18 @@
 import type { ShoppingItem } from './types'
+import { listItemsKey } from './migrateToLists'
 
-const STORAGE_KEY = 'shopping-sync:items'
-
-export function loadItems(): ShoppingItem[] {
+export function loadItems(listId: string): ShoppingItem[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(listItemsKey(listId))
     return raw ? (JSON.parse(raw) as ShoppingItem[]) : []
   } catch {
     return []
   }
 }
 
-export function saveItems(items: ShoppingItem[]): void {
+export function saveItems(listId: string, items: ShoppingItem[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
+    localStorage.setItem(listItemsKey(listId), JSON.stringify(items))
   } catch {
     // Storage unavailable (private mode, quota) — in-memory state still works for this session.
   }
