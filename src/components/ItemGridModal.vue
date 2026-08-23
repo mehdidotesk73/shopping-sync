@@ -145,11 +145,29 @@ function toggleStoreOnRow(row: Row, store: string) {
   else row.stores.splice(i, 1)
 }
 
+// Only candidates not already on the open row, so the dropdown is purely "add a store" —
+// removing one happens via the tag's own ⊖, not by re-toggling it in this list.
 const filteredStores = computed(() => {
+  const openRow = rows.value.find((r) => r.key === openStorePicker.value)
+  const selected = new Set(openRow?.stores ?? [])
   const f = storeFilter.value.trim().toLowerCase()
-  if (!f) return props.knownStores
-  return props.knownStores.filter((s) => s.toLowerCase().includes(f))
+  return props.knownStores.filter((s) => !selected.has(s) && (!f || s.toLowerCase().includes(f)))
 })
+
+function selectStore(row: Row, store: string) {
+  if (!row.stores.includes(store)) row.stores.push(store)
+  openStorePicker.value = null
+  storeFilter.value = ''
+}
+
+function addAndSelectStore(row: Row, name: string) {
+  const trimmed = name.trim()
+  if (!trimmed) return
+  emit('add-store', trimmed)
+  if (!row.stores.includes(trimmed)) row.stores.push(trimmed)
+  openStorePicker.value = null
+  storeFilter.value = ''
+}
 
 function startEditCategory(row: Row) {
   editingField.value = { key: row.key, field: 'category' }
@@ -171,6 +189,14 @@ function commitEdit(row: Row) {
   if (editingField.value.field === 'category') row.category = value
   else row.quantity = value
   editingField.value = null
+}
+
+// Blur fires synchronously as part of the same tap that moves focus elsewhere (e.g. onto
+// the Save button). Committing immediately shrinks the row right then, and on iOS Safari a
+// DOM mutation mid-gesture can suppress that tap's click entirely. Deferring the commit to
+// the next tick lets the tap's own click finish dispatching first.
+function deferCommit(row: Row) {
+  setTimeout(() => commitEdit(row), 0)
 }
 
 function cancelEdit() {
@@ -275,16 +301,16 @@ function save() {
               autofocus
               @keyup.enter="commitEdit(row)"
               @keyup.esc="cancelEdit"
-              @blur="commitEdit(row)"
+              @blur="deferCommit(row)"
             />
             <button
               v-else-if="!row.category"
               type="button"
-              class="icon-btn add-icon"
+              class="tag type-tag category-type"
               title="Add category"
               @click="startEditCategory(row)"
             >
-              ⊕
+              Category ⊕
             </button>
             <span
               v-else
@@ -318,30 +344,39 @@ function save() {
             <div class="store-picker">
               <button
                 type="button"
-                class="icon-btn add-icon"
+                class="tag type-tag store-type"
                 title="Add store"
                 @click="toggleStorePicker(row.key)"
               >
-                ⊕
+                Store ⊕
               </button>
               <div v-if="openStorePicker === row.key" class="store-popover">
                 <input
                   v-model="storeFilter"
                   type="text"
                   class="store-filter"
-                  placeholder="Filter stores"
+                  placeholder="Filter or add store"
                   autofocus
                 />
-                <label v-for="store in filteredStores" :key="store" class="store-option">
-                  <input
-                    type="checkbox"
-                    :checked="row.stores.includes(store)"
-                    @change="toggleStoreOnRow(row, store)"
-                  />
+                <button
+                  v-for="store in filteredStores"
+                  :key="store"
+                  type="button"
+                  class="store-option"
+                  @click="selectStore(row, store)"
+                >
                   {{ store }}
-                </label>
-                <p v-if="!filteredStores.length" class="store-empty">
-                  No matches — use "⊕ Add store" above to create one.
+                </button>
+                <button
+                  v-if="!filteredStores.length && storeFilter.trim()"
+                  type="button"
+                  class="store-option store-add-new"
+                  @click="addAndSelectStore(row, storeFilter)"
+                >
+                  ⊕ Add "{{ storeFilter.trim() }}" as store
+                </button>
+                <p v-else-if="!filteredStores.length" class="store-empty">
+                  Type a name to add a new store.
                 </p>
               </div>
             </div>
@@ -356,16 +391,16 @@ function save() {
               autofocus
               @keyup.enter="commitEdit(row)"
               @keyup.esc="cancelEdit"
-              @blur="commitEdit(row)"
+              @blur="deferCommit(row)"
             />
             <button
               v-else-if="!row.quantity"
               type="button"
-              class="icon-btn add-icon"
+              class="tag type-tag quantity-type"
               title="Add quantity"
               @click="startEditQuantity(row)"
             >
-              ⊕
+              Quantity ⊕
             </button>
             <span v-else class="tag neutral-tag" @click="startEditQuantity(row)">
               {{ row.quantity }}
@@ -576,6 +611,25 @@ function save() {
   color: var(--text);
 }
 
+.type-tag {
+  font-weight: 600;
+}
+
+.category-type {
+  border-color: var(--text-muted);
+  color: var(--text-muted);
+}
+
+.quantity-type {
+  border-color: #fb8c00;
+  color: #fb8c00;
+}
+
+.store-type {
+  border-color: #29b6f6;
+  color: #29b6f6;
+}
+
 .tag-remove {
   border: none;
   background: transparent;
@@ -635,11 +689,26 @@ function save() {
 }
 
 .store-option {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border: none;
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--text);
   font-size: 0.85rem;
   white-space: nowrap;
+}
+
+.store-option:hover {
+  background: var(--bg-elev-2);
+}
+
+.store-add-new {
+  color: var(--accent-blue);
+  font-weight: 600;
+  white-space: normal;
 }
 
 .store-empty {
