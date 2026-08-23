@@ -125,21 +125,31 @@ async function handleGridSave(rows: GridRow[]) {
   closeGrid()
 }
 
-const pendingRemoveId = ref<string | null>(null)
-let pendingRemoveTimer: ReturnType<typeof setTimeout> | null = null
+// Each item's armed/not-armed state is independent — a Set of ids, not one shared "current"
+// id — so arming one row's remove button can never affect any other row's.
+const armedRemoveIds = ref<Set<string>>(new Set())
+const armTimers = new Map<string, ReturnType<typeof setTimeout>>()
 
 async function handleRemoveTap(item: ShoppingItem) {
-  if (pendingRemoveTimer) clearTimeout(pendingRemoveTimer)
-  if (pendingRemoveId.value === item.id) {
-    pendingRemoveId.value = null
+  const existingTimer = armTimers.get(item.id)
+  if (existingTimer) clearTimeout(existingTimer)
+  armTimers.delete(item.id)
+
+  if (armedRemoveIds.value.has(item.id)) {
+    armedRemoveIds.value.delete(item.id)
     await removeItem(item.id)
     logDebug(`Removed item: ${item.name}`)
     return
   }
-  pendingRemoveId.value = item.id
-  pendingRemoveTimer = setTimeout(() => {
-    pendingRemoveId.value = null
-  }, 3000)
+
+  armedRemoveIds.value.add(item.id)
+  armTimers.set(
+    item.id,
+    setTimeout(() => {
+      armedRemoveIds.value.delete(item.id)
+      armTimers.delete(item.id)
+    }, 3000),
+  )
 }
 
 function handleRenameStore(payload: { id: string; name: string }) {
@@ -233,11 +243,11 @@ function endSession() {
           </div>
           <button
             class="remove-btn"
-            :class="{ confirming: pendingRemoveId === item.id }"
+            :class="{ confirming: armedRemoveIds.has(item.id) }"
             aria-label="Remove item"
             @click.stop="handleRemoveTap(item)"
           >
-            <span v-if="pendingRemoveId === item.id">Tap again to remove ⊖</span>
+            <span v-if="armedRemoveIds.has(item.id)">Tap again to remove ⊖</span>
             <span v-else>⊖</span>
           </button>
         </li>
@@ -458,7 +468,7 @@ function endSession() {
   font-weight: 600;
   white-space: nowrap;
   text-align: right;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  transition: color 0.2s ease;
 }
 
 .remove-btn:hover {
@@ -466,8 +476,7 @@ function endSession() {
 }
 
 .remove-btn.confirming {
-  background: var(--danger);
-  color: #fff;
+  color: var(--danger);
 }
 
 .session-start-header {
