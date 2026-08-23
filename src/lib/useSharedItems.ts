@@ -17,10 +17,18 @@ interface ItemRow {
   category: string
   quantity: string
   store_ids: string[]
+  checked: boolean | null
 }
 
 function rowToItem(row: ItemRow): ShoppingItem {
-  return { id: row.id, name: row.name, category: row.category, quantity: row.quantity, stores: row.store_ids ?? [] }
+  return {
+    id: row.id,
+    name: row.name,
+    category: row.category,
+    quantity: row.quantity,
+    stores: row.store_ids ?? [],
+    checked: row.checked ?? false,
+  }
 }
 
 /**
@@ -90,6 +98,7 @@ export function useSharedItems(listId: string) {
       category: input.category.trim(),
       quantity: input.quantity.trim(),
       stores: [...input.stores],
+      checked: false,
     }
     upsertLocal(item)
 
@@ -100,6 +109,7 @@ export function useSharedItems(listId: string) {
       category: item.category,
       quantity: item.quantity,
       store_ids: item.stores,
+      checked: item.checked,
     })
     if (insertError) {
       // A unique-name race with another viewer is expected occasionally — their insert
@@ -139,5 +149,17 @@ export function useSharedItems(listId: string) {
     if (deleteError) logDebug(`Shared removeItem failed: ${deleteError.message}`, 'error')
   }
 
-  return { items, addItem, updateItem, removeItem, connected, error }
+  // Written only by finishing a shopping session — not part of ItemInput/the grid, since
+  // it's session-derived state rather than something edited directly.
+  async function setChecked(updates: { id: string; checked: boolean }[]): Promise<void> {
+    for (const { id, checked } of updates) {
+      const item = items.value.find((i) => i.id === id)
+      if (item) item.checked = checked
+      if (!supabase) continue
+      const { error: updateError } = await supabase.from('list_items').update({ checked }).eq('id', id)
+      if (updateError) logDebug(`Shared setChecked failed: ${updateError.message}`, 'error')
+    }
+  }
+
+  return { items, addItem, updateItem, removeItem, setChecked, connected, error }
 }

@@ -35,6 +35,7 @@ export async function shareList(
         category: i.category,
         quantity: i.quantity,
         store_ids: i.stores,
+        checked: i.checked,
       })),
     )
     if (itemsError) return { ok: false, error: itemsError.message }

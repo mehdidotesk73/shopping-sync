@@ -8,8 +8,10 @@ import { useSharedStores } from '../lib/useSharedStores'
 import { shareList, shareUrl } from '../lib/shareList'
 import { allCategories, findDuplicate, itemsForStore } from '../lib/items'
 import { tagColor } from '../lib/tagColor'
+import { itemsToMarkdown, itemsToJson } from '../lib/exportItems'
 import ItemGridModal from './ItemGridModal.vue'
 import StoreManagerModal from './StoreManagerModal.vue'
+import ImportItemsModal from './ImportItemsModal.vue'
 import SessionView from './SessionView.vue'
 import { logDebug } from '../debug'
 
@@ -34,6 +36,7 @@ const {
   addItem,
   updateItem,
   removeItem,
+  setChecked,
   connected: itemsConnected,
   error: itemsError,
 } = props.shared ? useSharedItems(props.listId) : useLocalItems(props.listId)
@@ -78,6 +81,15 @@ const view = ref<View>('list')
 const showGrid = ref(false)
 const gridInitialItems = ref<ShoppingItem[]>([])
 const showStoreManager = ref(false)
+const showImport = ref(false)
+const mdCopied = ref(false)
+const jsonCopied = ref(false)
+const showMenu = ref(false)
+
+function openImportFromMenu() {
+  showMenu.value = false
+  showImport.value = true
+}
 
 const knownCategories = computed(() => allCategories(items.value))
 
@@ -123,6 +135,37 @@ async function handleGridSave(rows: GridRow[]) {
   }
   logDebug(`handleGridSave: done, items now ${items.value.length}`)
   closeGrid()
+}
+
+async function handleImport(names: string[]) {
+  let added = 0
+  for (const name of names) {
+    const result = await addItem({ name, category: '', stores: [], quantity: '' })
+    if (result.ok) added += 1
+    else logDebug(`Import skipped "${name}": duplicate of "${result.duplicate.name}"`, 'warn')
+  }
+  logDebug(`Imported ${added} item(s)`)
+  showImport.value = false
+}
+
+async function copyMarkdown() {
+  try {
+    await navigator.clipboard.writeText(itemsToMarkdown(sortedItems.value, storeName))
+    mdCopied.value = true
+    setTimeout(() => (mdCopied.value = false), 1500)
+  } catch {
+    logDebug('clipboard copy failed', 'error')
+  }
+}
+
+async function copyJson() {
+  try {
+    await navigator.clipboard.writeText(itemsToJson(sortedItems.value, storeName))
+    jsonCopied.value = true
+    setTimeout(() => (jsonCopied.value = false), 1500)
+  } catch {
+    logDebug('clipboard copy failed', 'error')
+  }
 }
 
 // Each item's armed/not-armed state is independent — a Set of ids, not one shared "current"
@@ -189,6 +232,12 @@ function endSession() {
   view.value = 'list'
   sessionStore.value = null
 }
+
+async function finishSession(updates: { id: string; checked: boolean }[]) {
+  await setChecked(updates)
+  logDebug(`Finished session: saved checked state for ${updates.length} item(s)`)
+  endSession()
+}
 </script>
 
 <template>
@@ -200,17 +249,36 @@ function endSession() {
           {{ listName }}
           <span v-if="shared" class="shared-badge">🔗 Shared</span>
         </h2>
-        <button
-          v-if="!shared"
-          class="btn-secondary share-btn"
-          :disabled="sharing"
-          @click="handleShare"
-        >
-          {{ sharing ? 'Sharing…' : '🔗 Share list' }}
-        </button>
-        <button v-else class="btn-secondary share-btn" @click="copyShareLink">
-          {{ linkCopied ? 'Copied ✓' : '🔗 Copy share link' }}
-        </button>
+        <div class="menu-wrapper">
+          <button
+            class="menu-btn"
+            aria-label="List actions"
+            @click="showMenu = !showMenu"
+          >
+            ⧉
+          </button>
+          <div v-if="showMenu" class="menu-backdrop" @click="showMenu = false"></div>
+          <div v-if="showMenu" class="menu-panel">
+            <button
+              v-if="!shared"
+              class="menu-item"
+              :disabled="sharing"
+              @click="handleShare"
+            >
+              {{ sharing ? 'Sharing…' : '🔗 Share list' }}
+            </button>
+            <button v-else class="menu-item" @click="copyShareLink">
+              {{ linkCopied ? 'Copied ✓' : '🔗 Copy share link' }}
+            </button>
+            <button class="menu-item" @click="openImportFromMenu">⊕ Import list</button>
+            <button class="menu-item" :disabled="!items.length" @click="copyMarkdown">
+              {{ mdCopied ? 'Copied ✓' : '⧉ Copy as Markdown' }}
+            </button>
+            <button class="menu-item" :disabled="!items.length" @click="copyJson">
+              {{ jsonCopied ? 'Copied ✓' : '⧉ Copy as JSON' }}
+            </button>
+          </div>
+        </div>
       </div>
 
       <div class="list-header">
@@ -278,6 +346,7 @@ function endSession() {
       :items="sessionItems"
       :store="sessionStoreName"
       @end="endSession"
+      @finish="finishSession"
     />
 
     <ItemGridModal
@@ -299,6 +368,13 @@ function endSession() {
       @remove="handleRemoveStore"
       @add="addStore"
       @close="showStoreManager = false"
+    />
+
+    <ImportItemsModal
+      :open="showImport"
+      :saved-items="items"
+      @import="handleImport"
+      @close="showImport = false"
     />
   </div>
 </template>
@@ -382,8 +458,67 @@ function endSession() {
   white-space: nowrap;
 }
 
-.share-btn {
+.menu-wrapper {
+  position: relative;
   flex-shrink: 0;
+}
+
+.menu-btn {
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 0.4rem;
+  background: var(--bg-elev-2);
+  color: var(--text);
+  font-size: 1.1rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.menu-panel {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  min-width: 12rem;
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+  overflow: hidden;
+  z-index: 50;
+}
+
+.menu-item {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
+  padding: 0.5rem 0.9rem;
+  text-align: left;
+  background: var(--bg-elev);
+  color: var(--text);
+  font-size: 0.88rem;
+  font-weight: 600;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.menu-item:last-child {
+  border-bottom: none;
+}
+
+.menu-item:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .share-error {

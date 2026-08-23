@@ -9,6 +9,7 @@ export interface ShoppingItem {
   category: string
   stores: string[] // Store ids, not names — rename a Store and every item stays linked
   quantity: string
+  checked: boolean // Picked-up state from the last shopping session it was finished in
 }
 
 export interface ListMeta {

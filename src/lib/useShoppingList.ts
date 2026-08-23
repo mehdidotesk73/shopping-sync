@@ -35,6 +35,7 @@ export function useLocalItems(listId: string) {
       category: input.category.trim(),
       stores: [...input.stores],
       quantity: input.quantity.trim(),
+      checked: false,
     })
     return { ok: true }
   }
@@ -57,5 +58,14 @@ export function useLocalItems(listId: string) {
     items.value = items.value.filter((i) => i.id !== id)
   }
 
-  return { items, addItem, updateItem, removeItem, connected, error }
+  // Written only by finishing a shopping session — not part of ItemInput/the grid, since
+  // it's session-derived state rather than something edited directly.
+  async function setChecked(updates: { id: string; checked: boolean }[]): Promise<void> {
+    for (const { id, checked } of updates) {
+      const item = items.value.find((i) => i.id === id)
+      if (item) item.checked = checked
+    }
+  }
+
+  return { items, addItem, updateItem, removeItem, setChecked, connected, error }
 }
