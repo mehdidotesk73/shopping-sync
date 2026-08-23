@@ -35,6 +35,17 @@ Track feature development, improvements, and known issues here. Move completed w
   `VITE_BUILD_ID`, so the footer's build stamp had silently shown "dev" on every deploy since day
   one — it now carries the real commit SHA.
 
+- **Remove-confirm + inline-edit cancel (v0.2.1):** The saved list's ⊖ remove button now arms
+  ("Tap again to remove ⊖", red text only) on first tap and only removes on a second tap within 3s,
+  independently per row (`armedRemoveIds: Set<string>` in `ShoppingList.vue`, keyed by item id so one
+  row's state can never bleed into another's). The grid's category/quantity inline editors gained a
+  ⊗ cancel button. Also fixed a real bug this surfaced: `.remove-icon`/`.remove-btn`/
+  `.inline-edit-cancel` all used the same red for both `:hover` and the real armed/confirming state,
+  and mobile Safari leaves `:hover` stuck on a tapped element until the next tap lands elsewhere — so
+  an untapped row could visually appear armed right after a delete. Fixed by wrapping every such
+  `:hover` rule in `@media (hover: hover) and (pointer: fine)` across `ShoppingList.vue`,
+  `ItemGridModal.vue`, `ListSwitcher.vue`, `StoreManagerModal.vue`.
+
 ## Next (Current Sprint)
 
 - [ ] Optional: run the recommended `unique index on (list_id, lower(name))` SQL against the

@@ -125,9 +125,31 @@ async function handleGridSave(rows: GridRow[]) {
   closeGrid()
 }
 
-async function handleRemove(item: ShoppingItem) {
-  await removeItem(item.id)
-  logDebug(`Removed item: ${item.name}`)
+// Each item's armed/not-armed state is independent — a Set of ids, not one shared "current"
+// id — so arming one row's remove button can never affect any other row's.
+const armedRemoveIds = ref<Set<string>>(new Set())
+const armTimers = new Map<string, ReturnType<typeof setTimeout>>()
+
+async function handleRemoveTap(item: ShoppingItem) {
+  const existingTimer = armTimers.get(item.id)
+  if (existingTimer) clearTimeout(existingTimer)
+  armTimers.delete(item.id)
+
+  if (armedRemoveIds.value.has(item.id)) {
+    armedRemoveIds.value.delete(item.id)
+    await removeItem(item.id)
+    logDebug(`Removed item: ${item.name}`)
+    return
+  }
+
+  armedRemoveIds.value.add(item.id)
+  armTimers.set(
+    item.id,
+    setTimeout(() => {
+      armedRemoveIds.value.delete(item.id)
+      armTimers.delete(item.id)
+    }, 3000),
+  )
 }
 
 function handleRenameStore(payload: { id: string; name: string }) {
@@ -219,8 +241,14 @@ function endSession() {
               <span v-for="storeId in item.stores" :key="storeId" class="tag" :style="tagColor(storeId)">{{ storeName(storeId) }}</span>
             </div>
           </div>
-          <button class="remove-btn" aria-label="Remove item" @click.stop="handleRemove(item)">
-            ⊖
+          <button
+            class="remove-btn"
+            :class="{ confirming: armedRemoveIds.has(item.id) }"
+            aria-label="Remove item"
+            @click.stop="handleRemoveTap(item)"
+          >
+            <span v-if="armedRemoveIds.has(item.id)">Tap again to remove ⊖</span>
+            <span v-else>⊖</span>
           </button>
         </li>
       </ul>
@@ -429,15 +457,30 @@ function endSession() {
 
 .remove-btn {
   flex-shrink: 0;
-  width: 2.5rem;
+  min-width: 10rem;
   height: 2.5rem;
+  padding: 0 0.6rem;
   border: none;
+  border-radius: 0.4rem;
   background: transparent;
   color: var(--text-muted);
-  font-size: 1.1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  text-align: right;
+  transition: color 0.2s ease;
 }
 
-.remove-btn:hover {
+/* Only for real pointer devices — on touch, a tap leaves :hover "stuck" until the next tap
+   lands elsewhere, which (using the same red as .confirming) looks exactly like the wrong
+   row's remove button being armed. */
+@media (hover: hover) and (pointer: fine) {
+  .remove-btn:hover {
+    color: var(--danger);
+  }
+}
+
+.remove-btn.confirming {
   color: var(--danger);
 }
 

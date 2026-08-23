@@ -4,6 +4,20 @@ Record what you learn as you build: patterns that work, ideas that didn't pan ou
 
 ## What Didn't Work (Gotchas & Dead Ends)
 
+### A Small Pending PR Left Open While a Big One Was Built Went Stale
+
+PR #2 (remove-confirm + a cancel button, two files) was small, already confirmed working
+on-device, and ready to merge. Instead of saying so and asking for it to be merged first, a much
+larger feature (shareable/live lists, ~20 files, several rounds) was built as a separate branch off
+the same, now-increasingly-stale `main`. By the time the big PR merged, #2 had a real conflict in a
+file both touched (`ShoppingList.vue`) and needed a manual merge-and-resolve that would have been
+zero effort if #2 had simply landed first.
+
+Rule worth keeping: when a small, ready PR is sitting open and the next request is unrelated and
+substantially larger, say so and suggest merging the small one first — either the user agrees and
+it's merged before the new branch is even cut, or they say no and at least it was a deliberate
+choice rather than an oversight that surfaces as a conflict later.
+
 ### "Save Does Nothing" — No Console Means No Root Cause Without a Log
 
 The Save button in the item grid stopped working for the user on-device, across a couple of
@@ -86,6 +100,19 @@ Emitting declarations for an *app* makes `vue-tsc` demand exported names for eve
 ## Version History
 
 (Record major releases here as you merge features. Example format below.)
+
+### v0.2.1 — 2026-08-23
+- **Fixed:** The saved list's remove-confirm button (and the grid's inline-edit cancel/remove
+  icons) could show the wrong row as "armed"/red, both right after a delete and lingering past the
+  3-second auto-reset. Root cause was mobile Safari's stuck-`:hover` behavior — a tap leaves `:hover`
+  active until a later tap lands elsewhere — combined with those buttons using the same red for
+  `:hover` as for the real confirming state. A full rewrite of the arm/confirm state from a single
+  shared "current id" to a per-row `Set<string>` did not fix it, which was the tell that the bug was
+  never in the state logic; wrapping the `:hover` rules in
+  `@media (hover: hover) and (pointer: fine)` (so touch devices never receive them) did. Confirmed
+  fixed on-device.
+- **UI:** Remove-confirm text is now red-text-only, no background fill, per explicit request; the
+  button's size stays fixed across both states so only the text changes.
 
 ### v0.2.0 — 2026-08-23
 - **Added:** Multiple named lists, and sharing — any list can go live via Supabase (real-time
