@@ -4,6 +4,28 @@ Record what you learn as you build: patterns that work, ideas that didn't pan ou
 
 ## What Didn't Work (Gotchas & Dead Ends)
 
+### "Save Does Nothing" — No Console Means No Root Cause Without a Log
+
+The Save button in the item grid stopped working for the user on-device, across a couple of
+iterations, with no error visible anywhere. First guess: committing an inline category/quantity
+edit synchronously on `blur` could mutate the DOM mid-tap and suppress that same tap's click on iOS
+Safari (a real, documented WebKit quirk) — so that commit was deferred by one tick as a defensive
+fix. That shipped without confirming it was the actual cause, because there was no way to see what
+was actually happening on the user's phone.
+
+The real fix was adding a global error catcher: `installGlobalErrorLogging()` (window `error` /
+`unhandledrejection`) plus `app.config.errorHandler` in `main.ts`, both routed into the existing
+on-screen debug log. Once that shipped, the user reported it working — but never sent the log, so
+which of the two changes (the defer, or something the error handler would have caught and that
+happened to get fixed in the same batch of edits) actually mattered is still unknown.
+
+Lesson: for a user who can't open devtools, a plausible-sounding guess shipped without
+instrumentation is a coin flip. The debug panel already existed for exactly this reason
+(`docs/CLAUDE.md`'s "Debugging on device" section) but only had scattered manual `logDebug()` calls
+— nothing caught an actual uncaught exception. That gap is what made this take multiple rounds
+instead of one: add the global catcher *first*, before guessing at a fix, any time a bug reports as
+silent failure with no visible cause.
+
 ### Mobile-First Design Constraints
 
 Touch targets need to be at least 44×44px. Avoid hover-only interactions — users on mobile have no hover. Rethink interactions like "expand on hover" as "toggle on tap" or always-expanded. Test regularly on actual mobile devices, not just the browser's responsive mode.
@@ -43,13 +65,23 @@ Emitting declarations for an *app* makes `vue-tsc` demand exported names for eve
 (Record major releases here as you merge features. Example format below.)
 
 ### v0.1.0 — 2026-08-23
-- **Added:** Core shopping list — item CRUD with category + store tagging, case-insensitive
-  duplicate detection with an "edit existing" prompt, and shopping sessions (all items or one
-  store) grouped by category with a checkable progress view. Help modal now renders real content
-  from `docs/concepts/overview.md`.
+- **Added:** Core shopping list. Items (name, category, store(s), quantity) are added/edited in
+  bulk through a compact grid (`ItemGridModal.vue`) — category/store/quantity render as color-coded
+  ghost tags rather than full-width inputs, so rows fit a phone screen, with ⊕/⊖ unicode icons used
+  for every add/remove action throughout the app. Duplicate protection works two ways: two rows
+  with the same name within the grid block Save, and a row matching an item already on the list
+  offers to edit that item instead (and resolves to it at save time even if ignored, so a real
+  duplicate can never be created). Stores are first-class entities (`{ id, name }`, not
+  derived from item usage) — an **Edit stores** manager lets you rename a store (updates every item
+  instantly) or delete one (removed from every item that had it, after an inline confirm naming how
+  many). Shopping sessions group items by category with a checkbox to mark each off, for "All
+  items" or one specific store. Help modal renders real content from `docs/concepts/overview.md`.
+- **Infrastructure:** Uncaught errors and Vue event-handler errors now route into the on-screen
+  debug log (no console on a phone otherwise). A one-time migration upgrades any data saved before
+  stores became id-based objects.
 - **Defaults:** Everything persists to `localStorage`; no accounts, no sync between devices yet.
-- **Infrastructure:** Initial scaffold, header/footer wrapper, Netlify (production + preview
-  deploys), branch-protected `main` requiring the `build` check.
+- **Setup:** Initial scaffold, header/footer wrapper, Netlify (production + preview deploys),
+  branch-protected `main` requiring the `build` check.
 - **Docs:** TODO, experience, system-design, concepts overview all personalized for this app.
 
 ---
