@@ -28,3 +28,18 @@ export function logDebug(msg: string, kind: 'log' | 'error' | 'warn' = 'log') {
     console.log(`[${time}] ${msg}`)
   }
 }
+
+/**
+ * Feeds uncaught errors and unhandled promise rejections into the same on-screen log,
+ * since there's no console on a phone to catch them otherwise — a thrown error inside a
+ * click handler (e.g. Save) would otherwise fail completely silently.
+ */
+export function installGlobalErrorLogging() {
+  window.addEventListener('error', (event) => {
+    logDebug(`Uncaught error: ${event.message} (${event.filename}:${event.lineno})`, 'error')
+  })
+  window.addEventListener('unhandledrejection', (event) => {
+    const reason = event.reason instanceof Error ? event.reason.message : String(event.reason)
+    logDebug(`Unhandled promise rejection: ${reason}`, 'error')
+  })
+}

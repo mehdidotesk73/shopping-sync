@@ -10,6 +10,7 @@
   --border: #d0d0d0;
   --accent-blue: #0066cc;
   --danger: #d32f2f;
+  --tag-lightness: 38%;
 
   /* Typography */
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial,
@@ -29,6 +30,7 @@
     --text: #ffffff;
     --text-muted: #aaaaaa;
     --border: #444444;
+    --tag-lightness: 62%;
   }
 }
 
@@ -40,6 +42,7 @@
   --text: #1a1a1a;
   --text-muted: #666666;
   --border: #d0d0d0;
+  --tag-lightness: 38%;
 }
 
 /* Dark mode override (if user explicitly sets it) */
@@ -50,6 +53,7 @@
   --text: #ffffff;
   --text-muted: #aaaaaa;
   --border: #444444;
+  --tag-lightness: 62%;
 }
 
 /* Global styles */
