@@ -283,16 +283,16 @@ function endSession() {
 .list-header {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.6rem;
+  gap: 0.4rem;
   margin-bottom: 1rem;
 }
 
 .btn-primary,
 .btn-secondary {
-  min-height: 2.75rem;
-  padding: 0.5rem 1.1rem;
+  min-height: 2rem;
+  padding: 0.3rem 0.75rem;
   border-radius: 999px;
-  font-size: 0.95rem;
+  font-size: 0.78rem;
   font-weight: 600;
   border: 1px solid var(--border);
 }
