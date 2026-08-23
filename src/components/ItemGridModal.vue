@@ -591,8 +591,10 @@ function save() {
   color: var(--text-muted);
 }
 
-.remove-icon:hover {
-  color: var(--danger);
+@media (hover: hover) and (pointer: fine) {
+  .remove-icon:hover {
+    color: var(--danger);
+  }
 }
 
 .status-icon {
@@ -691,8 +693,10 @@ function save() {
   flex-shrink: 0;
 }
 
-.inline-edit-cancel:hover {
-  color: var(--danger);
+@media (hover: hover) and (pointer: fine) {
+  .inline-edit-cancel:hover {
+    color: var(--danger);
+  }
 }
 
 .store-picker {

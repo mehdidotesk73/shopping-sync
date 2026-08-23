@@ -471,8 +471,13 @@ function endSession() {
   transition: color 0.2s ease;
 }
 
-.remove-btn:hover {
-  color: var(--danger);
+/* Only for real pointer devices — on touch, a tap leaves :hover "stuck" until the next tap
+   lands elsewhere, which (using the same red as .confirming) looks exactly like the wrong
+   row's remove button being armed. */
+@media (hover: hover) and (pointer: fine) {
+  .remove-btn:hover {
+    color: var(--danger);
+  }
 }
 
 .remove-btn.confirming {

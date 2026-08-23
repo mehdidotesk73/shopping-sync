@@ -231,8 +231,10 @@ function submitJoin() {
   color: var(--text-muted);
 }
 
-.remove-icon:hover {
-  color: var(--danger);
+@media (hover: hover) and (pointer: fine) {
+  .remove-icon:hover {
+    color: var(--danger);
+  }
 }
 
 .edit-input {
