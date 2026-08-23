@@ -2,6 +2,7 @@
 import { ref, computed, watch } from 'vue'
 import type { ShoppingItem, Store } from '../lib/types'
 import { tagColor } from '../lib/tagColor'
+import { logDebug } from '../debug'
 
 interface Row {
   key: string
@@ -220,17 +221,23 @@ const canSave = computed(
 )
 
 function save() {
+  logDebug(`Save tapped: canSave=${canSave.value}, rows=${rows.value.length}`)
   if (!canSave.value) return
-  const payload: SavedRow[] = rows.value
-    .filter((r) => r.name.trim())
-    .map((r) => ({
-      sourceId: r.sourceId,
-      name: r.name.trim(),
-      category: r.category.trim(),
-      stores: [...r.stores],
-      quantity: r.quantity.trim(),
-    }))
-  emit('save', payload)
+  try {
+    const payload: SavedRow[] = rows.value
+      .filter((r) => r.name.trim())
+      .map((r) => ({
+        sourceId: r.sourceId,
+        name: r.name.trim(),
+        category: r.category.trim(),
+        stores: [...r.stores],
+        quantity: r.quantity.trim(),
+      }))
+    logDebug(`Emitting save with ${payload.length} row(s)`)
+    emit('save', payload)
+  } catch (e) {
+    logDebug(`Save threw: ${e instanceof Error ? e.message : String(e)}`, 'error')
+  }
 }
 </script>
 

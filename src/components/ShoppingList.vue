@@ -50,15 +50,22 @@ function closeGrid() {
 type GridRow = { sourceId: string | null; name: string; category: string; stores: string[]; quantity: string }
 
 function handleGridSave(rows: GridRow[]) {
+  logDebug(`handleGridSave: received ${rows.length} row(s)`)
   for (const row of rows) {
-    // A row whose (possibly just-typed or just-renamed) name matches a different saved
-    // item is treated as an edit of *that* item — same guarantee as the pull-to-edit icon,
-    // so saving never creates a duplicate or silently no-ops even if the user ignored it.
-    const targetId = findDuplicate(items.value, row.name, row.sourceId ?? undefined)?.id ?? row.sourceId ?? null
-    const input = { name: row.name, category: row.category, stores: row.stores, quantity: row.quantity }
-    const result = targetId ? updateItem(targetId, input) : addItem(input)
-    if (result.ok) logDebug(`${targetId ? 'Updated' : 'Added'} item: ${row.name}`)
+    try {
+      // A row whose (possibly just-typed or just-renamed) name matches a different saved
+      // item is treated as an edit of *that* item — same guarantee as the pull-to-edit icon,
+      // so saving never creates a duplicate or silently no-ops even if the user ignored it.
+      const targetId = findDuplicate(items.value, row.name, row.sourceId ?? undefined)?.id ?? row.sourceId ?? null
+      const input = { name: row.name, category: row.category, stores: row.stores, quantity: row.quantity }
+      const result = targetId ? updateItem(targetId, input) : addItem(input)
+      if (result.ok) logDebug(`${targetId ? 'Updated' : 'Added'} item: ${row.name}`)
+      else logDebug(`Blocked "${row.name}": duplicate of "${result.duplicate.name}"`, 'warn')
+    } catch (e) {
+      logDebug(`Row save failed for "${row.name}": ${e instanceof Error ? e.message : String(e)}`, 'error')
+    }
   }
+  logDebug(`handleGridSave: done, items now ${items.value.length}`)
   closeGrid()
 }
 
