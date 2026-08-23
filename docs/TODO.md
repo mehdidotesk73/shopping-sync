@@ -13,8 +13,8 @@ One-time setup — tick these off as they're done:
 - [ ] Connect Netlify (finish-setup) — required; gives previews AND the production site
 - [ ] Protect `main` (finish-setup) — required; this is what makes changes arrive as PRs with
       preview links, instead of going straight to the live site
-
-(Then: what are you working on next?)
+- [ ] First feature: the item list — add/edit/remove, category + store tagging, and duplicate
+      detection that suggests editing the existing item instead of adding a second one
 
 ## Code
 
