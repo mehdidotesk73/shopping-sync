@@ -22,9 +22,24 @@ Track feature development, improvements, and known issues here. Move completed w
   on-screen debug log (`installGlobalErrorLogging()` + `app.config.errorHandler` in `main.ts`),
   since there's no console on a phone to catch them otherwise.
 
+- **Shareable, live lists (v0.2.0):** Multiple named lists (`ListSwitcher.vue`, `src/lib/useLists.ts`),
+  each either local (localStorage, offline, as before) or shared (Supabase-backed, realtime,
+  requires a connection) — `ShoppingList.vue` picks the right composables per-list and the parent
+  forces a remount when a list's shared flag flips. **🔗 Share list** uploads a local list's items/
+  stores to Supabase under its own id and hands back a link; **🔗 Copy share link** regenerates that
+  link anytime after. Joining works two ways — opening the link (`?list=<id>`, auto-detected) or
+  pasting it into **🔗 Join shared list** on the list switcher — both go through one
+  `joinListById()`. Realtime sync via Supabase `postgres_changes` subscriptions, with optimistic
+  local writes so your own edits feel instant. Existing single-list data migrates automatically into
+  a "My List" entry (`src/lib/migrateToLists.ts`). Also fixed: `netlify.toml` never set
+  `VITE_BUILD_ID`, so the footer's build stamp had silently shown "dev" on every deploy since day
+  one — it now carries the real commit SHA.
+
 ## Next (Current Sprint)
 
-(What are you working on next?)
+- [ ] Optional: run the recommended `unique index on (list_id, lower(name))` SQL against the
+      Supabase project — a server-side backstop for the client-side duplicate check under a race
+      between two simultaneous writers on a shared list.
 
 ## Docs
 
@@ -49,3 +64,9 @@ Track feature development, improvements, and known issues here. Move completed w
 - Reorder/pin categories instead of always alphabetical (with Uncategorized last).
 - Categories are still plain strings (no rename/delete-everywhere the way stores now have) — could
   get the same entity treatment if that turns out to matter in practice.
+- No "unshare" — once a list is shared it stays shared; only removing it from your own device's
+  registry is supported.
+- A shared list's *name* isn't synced live — the owner renaming it locally doesn't update what
+  other joined devices see (they keep whatever name they fetched at join time).
+- Offline queue + sync for shared lists was explicitly decided against for now (shared lists just
+  require a connection) — revisit if that trade-off turns out to matter in practice.
