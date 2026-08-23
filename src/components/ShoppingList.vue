@@ -36,6 +36,7 @@ const {
   addItem,
   updateItem,
   removeItem,
+  setChecked,
   connected: itemsConnected,
   error: itemsError,
 } = props.shared ? useSharedItems(props.listId) : useLocalItems(props.listId)
@@ -231,6 +232,12 @@ function endSession() {
   view.value = 'list'
   sessionStore.value = null
 }
+
+async function finishSession(updates: { id: string; checked: boolean }[]) {
+  await setChecked(updates)
+  logDebug(`Finished session: saved checked state for ${updates.length} item(s)`)
+  endSession()
+}
 </script>
 
 <template>
@@ -248,7 +255,7 @@ function endSession() {
             aria-label="List actions"
             @click="showMenu = !showMenu"
           >
-            ⬈
+            ⮺
           </button>
           <div v-if="showMenu" class="menu-backdrop" @click="showMenu = false"></div>
           <div v-if="showMenu" class="menu-panel">
@@ -339,6 +346,7 @@ function endSession() {
       :items="sessionItems"
       :store="sessionStoreName"
       @end="endSession"
+      @finish="finishSession"
     />
 
     <ItemGridModal

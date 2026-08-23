@@ -4,7 +4,10 @@ import { listItemsKey } from './migrateToLists'
 export function loadItems(listId: string): ShoppingItem[] {
   try {
     const raw = localStorage.getItem(listItemsKey(listId))
-    return raw ? (JSON.parse(raw) as ShoppingItem[]) : []
+    if (!raw) return []
+    // `checked` postdates this format — data saved before it existed just gets false.
+    const parsed = JSON.parse(raw) as Array<Omit<ShoppingItem, 'checked'> & { checked?: boolean }>
+    return parsed.map((item) => ({ ...item, checked: item.checked ?? false }))
   } catch {
     return []
   }

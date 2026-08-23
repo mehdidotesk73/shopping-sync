@@ -10,12 +10,21 @@ interface Props {
 
 interface Emits {
   (e: 'end'): void
+  (e: 'finish', updates: { id: string; checked: boolean }[]): void
 }
 
 const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
-const checked = ref<Set<string>>(new Set())
+// Picks up where the last finished session for these items left off, rather than starting blank.
+const checked = ref<Set<string>>(new Set(props.items.filter((i) => i.checked).map((i) => i.id)))
+
+function finishSession() {
+  emit(
+    'finish',
+    props.items.map((item) => ({ id: item.id, checked: checked.value.has(item.id) })),
+  )
+}
 
 function toggle(id: string) {
   if (checked.value.has(id)) checked.value.delete(id)
@@ -34,7 +43,10 @@ const doneCount = computed(() => props.items.filter((i) => checked.value.has(i.i
         <h2 class="session-title">{{ store ? `Shopping — ${store}` : 'Shopping — All items' }}</h2>
         <p class="session-progress">{{ doneCount }} of {{ total }} picked up</p>
       </div>
-      <button class="btn-secondary" @click="emit('end')">End session</button>
+      <div class="session-actions">
+        <button class="btn-secondary" @click="emit('end')">End session</button>
+        <button class="btn-primary" @click="finishSession">Finish session</button>
+      </div>
     </div>
 
     <p v-if="!total" class="empty">Nothing to shop for{{ store ? ` at ${store}` : '' }}.</p>
@@ -145,6 +157,14 @@ const doneCount = computed(() => props.items.filter((i) => checked.value.has(i.i
   padding: 1rem 0;
 }
 
+.session-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  flex-shrink: 0;
+}
+
+.btn-primary,
 .btn-secondary {
   min-height: 2.75rem;
   padding: 0.5rem 1rem;
@@ -152,8 +172,17 @@ const doneCount = computed(() => props.items.filter((i) => checked.value.has(i.i
   font-size: 0.9rem;
   font-weight: 600;
   border: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.btn-primary {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: #fff;
+}
+
+.btn-secondary {
   background: var(--bg-elev-2);
   color: var(--text);
-  white-space: nowrap;
 }
 </style>
