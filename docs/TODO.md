@@ -46,11 +46,24 @@ Track feature development, improvements, and known issues here. Move completed w
   `:hover` rule in `@media (hover: hover) and (pointer: fine)` across `ShoppingList.vue`,
   `ItemGridModal.vue`, `ListSwitcher.vue`, `StoreManagerModal.vue`.
 
+- **Import/export + Finish session (v0.3.0):** `ImportItemsModal.vue` parses text pasted from
+  elsewhere — an Apple Notes checklist (`- [ ] Item` / `- [x] Item`), a plain bullet or numbered
+  list, one name per line, or a single comma-separated line (`src/lib/importItems.ts`) — into bare
+  item names, previews which are new vs. already-on-the-list vs. repeated within the paste, and
+  imports only the genuinely new ones. `src/lib/exportItems.ts` copies the current list to the
+  clipboard as Markdown (a checklist, `[x]` for picked-up items) or JSON. Share list/Copy share
+  link, Import list, and both copy actions now live behind one `⧉` menu button next to the list
+  title instead of separate header buttons. `ShoppingItem` gained a `checked` boolean
+  (`src/lib/types.ts`) — sessions now offer **Finish session** alongside **End session**;
+  Finish writes each item's checked/unchecked state back to the list (`setChecked` on both
+  `useLocalItems`/`useSharedItems`) so a later session resumes from it instead of starting blank.
+  Shared lists needed a real Supabase migration for this (`alter table list_items add column
+  checked boolean not null default false`) — already run. The previously-recommended
+  `unique index on (list_id, lower(name))` has also now been run.
+
 ## Next (Current Sprint)
 
-- [ ] Optional: run the recommended `unique index on (list_id, lower(name))` SQL against the
-      Supabase project — a server-side backstop for the client-side duplicate check under a race
-      between two simultaneous writers on a shared list.
+(Nothing queued right now.)
 
 ## Docs
 
@@ -70,8 +83,9 @@ Track feature development, improvements, and known issues here. Move completed w
 
 ## Ideas / Backlog (Low Priority)
 
-- Persist which items are checked off mid-session (currently resets when a session ends), in case
-  someone leaves the app and comes back mid-shop.
+- Session progress still isn't saved until you explicitly tap **Finish session** — closing the tab
+  or tapping **End session** mid-shop still loses it. (Picked-up state itself is now persisted once
+  you do finish — see v0.3.0 above — this is just about the in-progress case.)
 - Reorder/pin categories instead of always alphabetical (with Uncategorized last).
 - Categories are still plain strings (no rename/delete-everywhere the way stores now have) — could
   get the same entity treatment if that turns out to matter in practice.
