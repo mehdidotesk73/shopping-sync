@@ -31,6 +31,14 @@ function toggle(id: string) {
   else checked.value.add(id)
 }
 
+function selectAll() {
+  checked.value = new Set(props.items.map((i) => i.id))
+}
+
+function deselectAll() {
+  checked.value = new Set()
+}
+
 const groups = computed(() => groupByCategory(props.items))
 const total = computed(() => props.items.length)
 const doneCount = computed(() => props.items.filter((i) => checked.value.has(i.id)).length)
@@ -39,13 +47,19 @@ const doneCount = computed(() => props.items.filter((i) => checked.value.has(i.i
 <template>
   <div class="session">
     <div class="session-header">
-      <div>
-        <h2 class="session-title">{{ store ? `Shopping — ${store}` : 'Shopping — All items' }}</h2>
-        <p class="session-progress">{{ doneCount }} of {{ total }} picked up</p>
+      <div class="session-header-top">
+        <div>
+          <h2 class="session-title">{{ store ? `Shopping — ${store}` : 'Shopping — All items' }}</h2>
+          <p class="session-progress">{{ doneCount }} of {{ total }} picked up</p>
+        </div>
+        <div class="session-actions">
+          <button class="btn-secondary" @click="emit('end')">End session</button>
+          <button class="btn-primary" @click="finishSession">Finish session</button>
+        </div>
       </div>
-      <div class="session-actions">
-        <button class="btn-secondary" @click="emit('end')">End session</button>
-        <button class="btn-primary" @click="finishSession">Finish session</button>
+      <div v-if="total" class="select-all-row">
+        <button type="button" class="link-btn" @click="selectAll">Select all</button>
+        <button type="button" class="link-btn" @click="deselectAll">Deselect all</button>
       </div>
     </div>
 
@@ -78,11 +92,20 @@ const doneCount = computed(() => props.items.filter((i) => checked.value.has(i.i
 }
 
 .session-header {
+  position: sticky;
+  top: env(safe-area-inset-top, 0px);
+  z-index: 10;
+  background: var(--bg);
+  padding: 0.5rem 0 0.75rem;
+  margin-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.session-header-top {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 1rem;
 }
 
 .session-title {
@@ -94,6 +117,22 @@ const doneCount = computed(() => props.items.filter((i) => checked.value.has(i.i
   margin: 0.2rem 0 0;
   font-size: 0.85rem;
   color: var(--text-muted);
+}
+
+.select-all-row {
+  display: flex;
+  gap: 1rem;
+  margin-top: 0.6rem;
+}
+
+.link-btn {
+  border: none;
+  background: transparent;
+  color: var(--accent-blue);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0;
+  white-space: nowrap;
 }
 
 .category-group {
