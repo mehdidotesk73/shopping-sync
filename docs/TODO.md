@@ -72,6 +72,11 @@ Track feature development, improvements, and known issues here. Move completed w
   bucket) with a count each, plus a free-text row to bulk-assign a brand-new category. Solves
   "imported 50 bare-name items, now tag them" without opening each one individually.
 
+- **Session Select all/Deselect all + sticky header (v0.4.1):** `SessionView.vue`'s header (title,
+  progress, End session/Finish session) is now `position: sticky` (`top: env(safe-area-inset-top,
+  0px)`, so it clears a notch once stuck) instead of scrolling away on a long session. Select all/
+  Deselect all sit in that same pinned header, next to the progress count.
+
 ## Next (Current Sprint)
 
 (Nothing queued right now.)

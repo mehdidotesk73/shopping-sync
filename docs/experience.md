@@ -118,6 +118,13 @@ Emitting declarations for an *app* makes `vue-tsc` demand exported names for eve
 
 (Record major releases here as you merge features. Example format below.)
 
+### v0.4.1 — 2026-08-28
+- **Added:** Select all / Deselect all in a shopping session, next to the progress count.
+- **Fixed:** The session header (title, progress, End session/Finish session) scrolled away on a
+  long session (many items, or "All items" across every store) — now `position: sticky` so it stays
+  visible while scrolling the item list beneath it.
+- **Docs:** Doc gate run right after the merge this time, per the v0.4.0 lesson above.
+
 ### v0.4.0 — 2026-08-23
 - **Added:** Bulk-assign a store or a category to a selection of items at once, instead of editing
   each one individually — the fix for "I imported 50 bare-name items, now I need to tag them."
